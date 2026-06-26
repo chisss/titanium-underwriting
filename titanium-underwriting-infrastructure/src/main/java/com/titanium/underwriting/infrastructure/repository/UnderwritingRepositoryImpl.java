@@ -59,8 +59,8 @@ public class UnderwritingRepositoryImpl implements UnderwritingRepository {
     }
 
     @Override
-    public Page<Underwriting> findByUnderwritingTypeAndTenantId(String underwritingType, String tenantId,
-                                                                Pageable pageable) {
+    public Page<Underwriting> findByUnderwritingTypeAndTenantId(UnderwritingEnum.UnderwritingType underwritingType,
+                                                                String tenantId, Pageable pageable) {
         return null;
     }
 

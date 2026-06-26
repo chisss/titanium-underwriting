@@ -2,6 +2,7 @@ package com.titanium.underwriting.api;
 
 import java.util.List;
 
+import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,12 +15,11 @@ import com.titanium.underwriting.api.dto.UnderwritingDTO;
 import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.UnderwriteRequest;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 核保服务Feign客户端
  */
-@RestController
+@FeignClient(name = "titanium-underwriting-service")
 @RequestMapping("/underwriting/api")
 public interface UnderwritingApi {
     /**

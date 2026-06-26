@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.titanium.metadata.enums.CurrencyEnum;
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.UnderwritingApi;
 import com.titanium.underwriting.api.dto.UnderwritingDTO;
 import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
@@ -52,9 +54,11 @@ public class UnderwritingApiController implements UnderwritingApi {
                                                               @RequestHeader("X-Tenant-ID") String tenantId) {
 
         // 构建命令
+        // 边界防腐：REST 入参币种 code(String) 转 CurrencyEnum
+        CurrencyEnum currency = CurrencyEnum.fromCode(request.getCurrency());
         CreateUnderwritingCommand command = new CreateUnderwritingCommand(UnderwritingId.generate(),
                 PolicyId.of(request.getPolicyId()), CustomerId.of(request.getCustomerId()),
-                UnderwritingAmount.of(request.getAmount(), request.getCurrency()), request.getUnderwritingType(),
+                UnderwritingAmount.of(request.getAmount(), currency), request.getUnderwritingType(),
                 request.getRequestBy(), tenantId);
 
         // 执行命令
@@ -109,6 +113,8 @@ public class UnderwritingApiController implements UnderwritingApi {
     }
 
     public ResponseEntity<List<UnderwritingDTO>> getUnderwritingsByStatus(String status, String tenantId) {
+        // 边界防腐：path 状态 code(String) 转枚举后再查询（当前为桩，查询逻辑待补）
+        UnderwritingEnum.UnderwritingStatus underwritingStatus = UnderwritingEnum.UnderwritingStatus.fromCode(status);
         return ResponseEntity.ok(List.of());
     }
 

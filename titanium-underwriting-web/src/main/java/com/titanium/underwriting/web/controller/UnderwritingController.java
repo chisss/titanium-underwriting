@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.UnderwritingApi;
 import com.titanium.underwriting.api.dto.UnderwritingDTO;
 import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
@@ -98,6 +99,8 @@ public class UnderwritingController {
      * @return 核保VO列表
      */
     public ResponseEntity<List<UnderwritingVO>> getUnderwritingsByStatus(String status, String tenantId) {
+        // 边界防腐：path 状态 code(String) 转枚举后再下发（当前为桩，查询逻辑待补）
+        UnderwritingEnum.UnderwritingStatus underwritingStatus = UnderwritingEnum.UnderwritingStatus.fromCode(status);
         // TODO: 需要在UnderwritingApi中添加根据状态查询的方法
         return ResponseEntity.ok(List.of());
     }

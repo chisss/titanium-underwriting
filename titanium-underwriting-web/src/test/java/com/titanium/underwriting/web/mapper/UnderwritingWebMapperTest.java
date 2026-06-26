@@ -1,5 +1,6 @@
 package com.titanium.underwriting.web.mapper;
 
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.dto.UnderwritingDTO;
 import com.titanium.underwriting.web.vo.UnderwritingVO;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,7 @@ class UnderwritingWebMapperTest {
         dto.setPolicyId("POL202401001");
         dto.setCustomerId("CUST202401001");
         dto.setAmount(new BigDecimal("500000.00"));
-        dto.setUnderwritingType("寿险核保");
+        dto.setUnderwritingType(UnderwritingEnum.UnderwritingType.NEW_BUSINESS);
         dto.setCreatedAt(LocalDateTime.now());
         dto.setVersion(1L);
 

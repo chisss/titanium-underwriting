@@ -13,15 +13,22 @@ import org.axonframework.modelling.command.AggregateLifecycle;
 import org.axonframework.spring.stereotype.Aggregate;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.domain.exception.UnderwritingValidationException;
+import com.titanium.underwriting.domain.exception.UnderwritingStatusException;
 import com.titanium.underwriting.domain.command.CreateUnderwritingCommand;
+import com.titanium.underwriting.domain.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.domain.command.ManualReviewCommand;
+import com.titanium.underwriting.domain.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.domain.command.UnderwriteCommand;
 import com.titanium.underwriting.domain.event.UnderwritingCreatedEvent;
+import com.titanium.underwriting.domain.event.UnderwritingDecidedEvent;
+import com.titanium.underwriting.domain.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.domain.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.domain.valueobject.CustomerId;
 import com.titanium.underwriting.domain.valueobject.PolicyId;
 import com.titanium.underwriting.domain.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.domain.valueobject.UnderwritingId;
+import com.titanium.underwriting.domain.valueobject.UnderwritingInput;
 
 import lombok.Getter;
 
@@ -33,13 +40,22 @@ import lombok.Getter;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)  // 为 Builder 提供全参构造函数
 @Getter
 public class Underwriting {
+    /** 自动核保金额上限：超过该金额且无险种输入时转人工复核（回退规则） */
+    private static final BigDecimal AUTO_APPROVE_AMOUNT_LIMIT = BigDecimal.valueOf(100000);
+
     @AggregateIdentifier
     private UnderwritingId                      underwritingId;
     private PolicyId                            policyId;
     private CustomerId                          customerId;
     private UnderwritingAmount                  amount;
-    private String                              underwritingType;
+    private UnderwritingEnum.UnderwritingType   underwritingType;
     private UnderwritingEnum.UnderwritingStatus status;
+    /** 险种专属核保输入容器（健康告知/体检/职业/车辆风险） */
+    private UnderwritingInput                   underwritingInput;
+    /** 风险等级（标准体/次标准体/高风险体/不可保体），由核保决策产出 */
+    private UnderwritingEnum.RiskLevel          riskLevel;
+    /** 核保结论（接受/修改条件/拒绝/延期），由核保决策产出 */
+    private UnderwritingEnum.ConclusionType     conclusionType;
     private String                              rejectReason;
     private String                              reviewComments;
     private LocalDateTime                       createdAt;
@@ -74,12 +90,99 @@ public class Underwriting {
     }
 
     private UnderwritingEnum.UnderwritingStatus determineUnderwritingStatus(UnderwriteCommand command) {
-        // Simple business rule: if amount exceeds 100000, require manual review
-        if (command.amount().getAmount().compareTo(BigDecimal.valueOf(100000)) > 0) {
+        // 优先基于已提交险种专属输入评估的风险等级判定（充血模型），无输入时回退金额规则
+        if (this.underwritingInput != null && this.underwritingInput.hasAnyInput()) {
+            UnderwritingEnum.RiskLevel assessedLevel = this.underwritingInput.assessRiskLevel();
+            return mapRiskLevelToStatus(assessedLevel);
+        }
+        // 回退规则：金额超过自动核保阈值需转人工复核
+        // TODO 规则引擎接入：金额阈值应改由 titanium-rule-engine 按险种/租户配置
+        if (command.amount().getAmount().compareTo(AUTO_APPROVE_AMOUNT_LIMIT) > 0) {
             return UnderwritingEnum.UnderwritingStatus.REVIEW;
         }
-        // Otherwise, approve automatically
         return UnderwritingEnum.UnderwritingStatus.APPROVED;
+    }
+
+    /**
+     * 提交险种专属核保输入
+     * <p>
+     * 接收健康告知/体检/职业/车辆风险等输入，供后续核保决策评估风险等级。
+     * </p>
+     */
+    @CommandHandler
+    public void handle(SubmitUnderwritingInputCommand command) {
+        validateSubmitInputCommand(command);
+
+        AggregateLifecycle.apply(new UnderwritingInputSubmittedEvent(command.underwritingId(),
+                command.underwritingInput(), LocalDateTime.now(), command.submittedBy(), command.tenantId()));
+    }
+
+    /**
+     * 核保决策
+     * <p>
+     * 基于已提交的险种专属输入评估风险等级，并映射为核保结论与核保状态，
+     * 内聚核保决策逻辑（充血模型），替代原"金额硬编码"规则。
+     * </p>
+     */
+    @CommandHandler
+    public void handle(DecideUnderwritingCommand command) {
+        validateDecideCommand(command);
+
+        // 基于险种专属输入评估风险等级（充血模型）
+        int riskScore = this.underwritingInput.aggregateRiskScore();
+        UnderwritingEnum.RiskLevel assessedRiskLevel = this.underwritingInput.assessRiskLevel();
+        // 风险等级映射核保结论
+        UnderwritingEnum.ConclusionType conclusion = deriveConclusion(assessedRiskLevel);
+        // 核保结论映射核保状态
+        UnderwritingEnum.UnderwritingStatus oldStatus = this.status;
+        UnderwritingEnum.UnderwritingStatus newStatus = mapConclusionToStatus(conclusion);
+
+        AggregateLifecycle.apply(new UnderwritingDecidedEvent(command.underwritingId(), assessedRiskLevel, conclusion,
+                command.auditType(), oldStatus, newStatus, riskScore, LocalDateTime.now(), command.decidedBy(),
+                command.tenantId()));
+    }
+
+    /**
+     * 风险等级映射核保结论（充血模型）
+     * <p>
+     * 标准体→接受承保；次标准体→修改条件（加费/除外）承保；高风险体→延期；不可保体→拒保。
+     * </p>
+     *
+     * @param level 风险等级
+     * @return 核保结论
+     */
+    private UnderwritingEnum.ConclusionType deriveConclusion(UnderwritingEnum.RiskLevel level) {
+        return switch (level) {
+            case STANDARD -> UnderwritingEnum.ConclusionType.ACCEPT;
+            case SUB_STANDARD -> UnderwritingEnum.ConclusionType.MODIFY;
+            case HIGH_RISK -> UnderwritingEnum.ConclusionType.POSTPONE;
+            case UNINSURABLE -> UnderwritingEnum.ConclusionType.REJECT;
+        };
+    }
+
+    /**
+     * 核保结论映射核保状态（充血模型）
+     *
+     * @param conclusion 核保结论
+     * @return 核保状态
+     */
+    private UnderwritingEnum.UnderwritingStatus mapConclusionToStatus(UnderwritingEnum.ConclusionType conclusion) {
+        return switch (conclusion) {
+            case ACCEPT -> UnderwritingEnum.UnderwritingStatus.STANDARD;
+            case MODIFY -> UnderwritingEnum.UnderwritingStatus.RATED;
+            case POSTPONE -> UnderwritingEnum.UnderwritingStatus.POSTPONED;
+            case REJECT -> UnderwritingEnum.UnderwritingStatus.DECLINED;
+        };
+    }
+
+    /**
+     * 风险等级映射核保状态（自动核保回退路径，充血模型）
+     *
+     * @param level 风险等级
+     * @return 核保状态
+     */
+    private UnderwritingEnum.UnderwritingStatus mapRiskLevelToStatus(UnderwritingEnum.RiskLevel level) {
+        return mapConclusionToStatus(deriveConclusion(level));
     }
 
     @CommandHandler
@@ -124,58 +227,116 @@ public class Underwriting {
         this.updatedBy = event.changedBy();
     }
 
+    @EventSourcingHandler
+    public void on(UnderwritingInputSubmittedEvent event) {
+        this.underwritingInput = event.underwritingInput();
+        this.updatedAt = event.submittedAt();
+        this.updatedBy = event.submittedBy();
+    }
+
+    @EventSourcingHandler
+    public void on(UnderwritingDecidedEvent event) {
+        this.riskLevel = event.riskLevel();
+        this.conclusionType = event.conclusionType();
+        this.status = event.newStatus();
+        this.updatedAt = event.decidedAt();
+        this.updatedBy = event.decidedBy();
+    }
+
     // Business Logic
     private void validateCreateCommand(CreateUnderwritingCommand command) {
+        final String commandName = "CreateUnderwritingCommand";
         if (command.underwritingId() == null) {
-            throw new IllegalArgumentException("Underwriting ID must not be null");
+            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不能为空");
         }
         if (command.policyId() == null) {
-            throw new IllegalArgumentException("Policy ID must not be null");
+            throw new UnderwritingValidationException(commandName, "policyId", "保单ID不能为空");
         }
         if (command.customerId() == null) {
-            throw new IllegalArgumentException("Customer ID must not be null");
+            throw new UnderwritingValidationException(commandName, "customerId", "客户ID不能为空");
         }
         if (command.amount() == null) {
-            throw new IllegalArgumentException("Underwriting amount must not be null");
+            throw new UnderwritingValidationException(commandName, "amount", "核保金额不能为空");
         }
-        if (command.underwritingType() == null || command.underwritingType().trim().isEmpty()) {
-            throw new IllegalArgumentException("Underwriting type must not be empty");
+        if (command.underwritingType() == null) {
+            throw new UnderwritingValidationException(commandName, "underwritingType", "核保类型不能为空");
         }
         if (command.createdBy() == null || command.createdBy().trim().isEmpty()) {
-            throw new IllegalArgumentException("Created by must not be empty");
+            throw new UnderwritingValidationException(commandName, "createdBy", "创建人不能为空");
         }
         if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
-            throw new IllegalArgumentException("Tenant ID must not be empty");
+            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
         }
     }
 
     private void validateUnderwriteCommand(UnderwriteCommand command) {
+        final String commandName = "UnderwriteCommand";
         if (!this.underwritingId.equals(command.underwritingId())) {
-            throw new IllegalArgumentException("Underwriting ID mismatch");
+            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不匹配");
         }
         if (command.processedBy() == null || command.processedBy().trim().isEmpty()) {
-            throw new IllegalArgumentException("Processed by must not be empty");
+            throw new UnderwritingValidationException(commandName, "processedBy", "处理人不能为空");
         }
         if (command.reason() == null || command.reason().trim().isEmpty()) {
-            throw new IllegalArgumentException("Reason must not be empty");
+            throw new UnderwritingValidationException(commandName, "reason", "处理原因不能为空");
         }
         if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
-            throw new IllegalArgumentException("Tenant ID must not be empty");
+            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
         }
     }
 
     private void validateManualReviewCommand(ManualReviewCommand command) {
+        final String commandName = "ManualReviewCommand";
         if (!this.underwritingId.equals(command.underwritingId())) {
-            throw new IllegalArgumentException("Underwriting ID mismatch");
+            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不匹配");
         }
         if (command.reviewedBy() == null || command.reviewedBy().trim().isEmpty()) {
-            throw new IllegalArgumentException("Reviewed by must not be empty");
+            throw new UnderwritingValidationException(commandName, "reviewedBy", "审核人不能为空");
         }
         if (command.reviewComments() == null || command.reviewComments().trim().isEmpty()) {
-            throw new IllegalArgumentException("Review comments must not be empty");
+            throw new UnderwritingValidationException(commandName, "reviewComments", "审核意见不能为空");
         }
         if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
-            throw new IllegalArgumentException("Tenant ID must not be empty");
+            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
+        }
+    }
+
+    private void validateSubmitInputCommand(SubmitUnderwritingInputCommand command) {
+        final String commandName = "SubmitUnderwritingInputCommand";
+        if (!this.underwritingId.equals(command.underwritingId())) {
+            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不匹配");
+        }
+        if (command.underwritingInput() == null || !command.underwritingInput().hasAnyInput()) {
+            throw new UnderwritingValidationException(commandName, "underwritingInput", "至少需要提交一项险种专属核保输入");
+        }
+        if (command.submittedBy() == null || command.submittedBy().trim().isEmpty()) {
+            throw new UnderwritingValidationException(commandName, "submittedBy", "提交人不能为空");
+        }
+        if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
+            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
+        }
+    }
+
+    private void validateDecideCommand(DecideUnderwritingCommand command) {
+        final String commandName = "DecideUnderwritingCommand";
+        if (!this.underwritingId.equals(command.underwritingId())) {
+            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不匹配");
+        }
+        if (command.auditType() == null) {
+            throw new UnderwritingValidationException(commandName, "auditType", "核保方式不能为空");
+        }
+        if (command.decidedBy() == null || command.decidedBy().trim().isEmpty()) {
+            throw new UnderwritingValidationException(commandName, "decidedBy", "决策人不能为空");
+        }
+        if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
+            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
+        }
+        // 决策前必须已提交险种专属输入，否则违反核保业务规则
+        if (this.underwritingInput == null || !this.underwritingInput.hasAnyInput()) {
+            throw new UnderwritingStatusException(this.underwritingId.toString(),
+                    this.status == null ? "UNKNOWN" : this.status.getCode(),
+                    UnderwritingEnum.UnderwritingStatus.APPROVED.getCode(),
+                    "核保决策前必须先提交险种专属核保输入");
         }
     }
 

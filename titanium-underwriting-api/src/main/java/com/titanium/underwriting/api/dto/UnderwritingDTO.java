@@ -29,8 +29,8 @@ public class UnderwritingDTO {
     @Schema(description = "核保金额", example = "500000.00")
     private BigDecimal amount;
 
-    @Schema(description = "核保类型", example = "寿险核保")
-    private String underwritingType;
+    @Schema(description = "核保类型", example = "NEW_BUSINESS")
+    private UnderwritingEnum.UnderwritingType underwritingType;
 
     @Schema(description = "核保状态")
     private UnderwritingEnum.UnderwritingStatus status;
@@ -81,10 +81,10 @@ public class UnderwritingDTO {
     private String medicalExamId;
 
     @Schema(description = "体检状态")
-    private String medicalExamStatus;
+    private UnderwritingEnum.MedicalExamStatus medicalExamStatus;
 
     @Schema(description = "第三方调查结果")
-    private String investigationResult;
+    private UnderwritingEnum.InvestigationResult investigationResult;
 
     @Schema(description = "同业拒保记录")
     private String industryDeclineRecord;

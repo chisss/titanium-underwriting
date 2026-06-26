@@ -51,8 +51,9 @@ public class UnderwritingQueryEntity {
     @Column(name = "amount", precision = 15, scale = 2)
     private BigDecimal                          amount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "underwriting_type", length = 100)
-    private String                              underwritingType;
+    private UnderwritingEnum.UnderwritingType   underwritingType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 50, nullable = false)
@@ -106,11 +107,13 @@ public class UnderwritingQueryEntity {
     @Column(name = "medical_exam_id", length = 50)
     private String                              medicalExamId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "medical_exam_status", length = 50)
-    private String                              medicalExamStatus;
+    private UnderwritingEnum.MedicalExamStatus  medicalExamStatus;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "investigation_result", length = 2000)
-    private String                              investigationResult;
+    private UnderwritingEnum.InvestigationResult investigationResult;
 
     @Column(name = "industry_decline_record", length = 2000)
     private String                              industryDeclineRecord;

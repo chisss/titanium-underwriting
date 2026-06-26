@@ -26,7 +26,7 @@ public class UnderwritingQueryResult {
     private BigDecimal                          amount;
 
     /** 核保类型 */
-    private String                              underwritingType;
+    private UnderwritingEnum.UnderwritingType   underwritingType;
 
     /** 核保状态 */
     private UnderwritingEnum.UnderwritingStatus status;
@@ -77,10 +77,10 @@ public class UnderwritingQueryResult {
     private String                              medicalExamId;
 
     /** 体检状态 */
-    private String                              medicalExamStatus;
+    private UnderwritingEnum.MedicalExamStatus  medicalExamStatus;
 
     /** 第三方调查结果 */
-    private String                              investigationResult;
+    private UnderwritingEnum.InvestigationResult investigationResult;
 
     /** 同业拒保记录 */
     private String                              industryDeclineRecord;

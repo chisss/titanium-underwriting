@@ -8,7 +8,6 @@ import org.mapstruct.Mappings;
 import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 
-import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.domain.aggregate.Underwriting;
 import com.titanium.underwriting.domain.valueobject.CustomerId;
 import com.titanium.underwriting.domain.valueobject.PolicyId;
@@ -32,21 +31,19 @@ public interface UnderwritingEntityMapper {
             @Mapping(source = "underwritingId", target = "underwritingId", qualifiedByName = "stringToUnderwritingId"),
             @Mapping(source = "policyId", target = "policyId", qualifiedByName = "stringToPolicyId"),
             @Mapping(source = "customerId", target = "customerId", qualifiedByName = "stringToCustomerId"),
-            @Mapping(source = "amount", target = "amount", qualifiedByName = "bigDecimalToUnderwritingAmount"),
-            @Mapping(source = "status", target = "status", qualifiedByName = "stringToUnderwritingStatus") })
+            @Mapping(source = "amount", target = "amount", qualifiedByName = "bigDecimalToUnderwritingAmount") })
     Underwriting toDomain(UnderwritingEntity entity);
 
     /**
      * 将领域对象转换为数据库实体
-     * 
+     *
      * @param underwriting 领域对象
      * @return 数据库实体
      */
     @Mappings({ @Mapping(source = "underwritingId.value", target = "underwritingId"),
             @Mapping(source = "policyId.value", target = "policyId"),
             @Mapping(source = "customerId.value", target = "customerId"),
-            @Mapping(source = "amount.amount", target = "amount"),
-            @Mapping(source = "status.code", target = "status") })
+            @Mapping(source = "amount.amount", target = "amount") })
     UnderwritingEntity toEntity(Underwriting underwriting);
 
     /**
@@ -84,23 +81,15 @@ public interface UnderwritingEntityMapper {
 
     /**
      * 将BigDecimal转换为UnderwritingAmount
-     * 
+     * <p>
+     * 实体未持久化币种，统一按默认人民币（CurrencyEnum.CNY）重建金额值对象。
+     * </p>
+     *
      * @param amount BigDecimal金额
      * @return UnderwritingAmount对象
      */
     @Named("bigDecimalToUnderwritingAmount")
     default UnderwritingAmount bigDecimalToUnderwritingAmount(BigDecimal amount, String currency) {
-        return UnderwritingAmount.of(amount, currency);
-    }
-
-    /**
-     * 将字符串转换为UnderwritingStatus
-     * 
-     * @param code 状态码
-     * @return UnderwritingStatus枚举值
-     */
-    @Named("stringToUnderwritingStatus")
-    default UnderwritingEnum.UnderwritingStatus stringToUnderwritingStatus(String code) {
-        return UnderwritingEnum.UnderwritingStatus.fromCode(code);
+        return new UnderwritingAmount(amount);
     }
 }

@@ -3,8 +3,12 @@ package com.titanium.underwriting.infrastructure.entity;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
@@ -31,14 +35,17 @@ public class UnderwritingEntity {
     @Column(name = "amount", precision = 18, scale = 2, nullable = false)
     private BigDecimal    amount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "underwriting_type", length = 50, nullable = false)
-    private String        underwritingType;
+    private UnderwritingEnum.UnderwritingType underwritingType;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
-    private String        status;
+    private UnderwritingEnum.UnderwritingStatus status;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "review_result", length = 20)
-    private String        reviewResult;
+    private UnderwritingEnum.ConclusionType reviewResult;
 
     @Column(name = "review_reason", columnDefinition = "TEXT")
     private String        reviewReason;

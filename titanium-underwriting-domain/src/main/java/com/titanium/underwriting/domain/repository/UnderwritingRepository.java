@@ -94,7 +94,8 @@ public interface UnderwritingRepository
      * @param pageable pagination information
      * @return the page of underwritings
      */
-    Page<Underwriting> findByUnderwritingTypeAndTenantId(String underwritingType, String tenantId, Pageable pageable);
+    Page<Underwriting> findByUnderwritingTypeAndTenantId(UnderwritingEnum.UnderwritingType underwritingType,
+                                                         String tenantId, Pageable pageable);
 
     /**
      * Count underwritings by status and tenant ID

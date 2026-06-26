@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.infrastructure.entity.UnderwritingEntity;
 
 /**
@@ -41,7 +42,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
      * @param tenantId 租户ID
      * @return 核保实体列表
      */
-    List<UnderwritingEntity> findByStatusAndTenantId(String status, String tenantId);
+    List<UnderwritingEntity> findByStatusAndTenantId(UnderwritingEnum.UnderwritingStatus status, String tenantId);
 
     /**
      * 根据核保类型和租户ID查找核保记录列表
@@ -50,7 +51,8 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
      * @param tenantId 租户ID
      * @return 核保实体列表
      */
-    List<UnderwritingEntity> findByUnderwritingTypeAndTenantId(String underwritingType, String tenantId);
+    List<UnderwritingEntity> findByUnderwritingTypeAndTenantId(UnderwritingEnum.UnderwritingType underwritingType,
+                                                              String tenantId);
 
     /**
      * 根据租户ID查找所有核保记录
@@ -97,7 +99,8 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
      * @param pageable 分页信息
      * @return 核保实体分页列表
      */
-    Page<UnderwritingEntity> findByStatusAndTenantId(String status, String tenantId, Pageable pageable);
+    Page<UnderwritingEntity> findByStatusAndTenantId(UnderwritingEnum.UnderwritingStatus status, String tenantId,
+                                                     Pageable pageable);
 
     /**
      * 根据客户ID、状态和租户ID分页查找核保记录
@@ -108,8 +111,9 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
      * @param pageable 分页信息
      * @return 核保实体分页列表
      */
-    Page<UnderwritingEntity> findByCustomerIdAndStatusAndTenantId(String customerId, String status, String tenantId,
-                                                                  Pageable pageable);
+    Page<UnderwritingEntity> findByCustomerIdAndStatusAndTenantId(String customerId,
+                                                                  UnderwritingEnum.UnderwritingStatus status,
+                                                                  String tenantId, Pageable pageable);
 
     /**
      * 根据创建时间范围和租户ID分页查找核保记录
@@ -131,8 +135,8 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
      * @param pageable 分页信息
      * @return 核保实体分页列表
      */
-    Page<UnderwritingEntity> findByUnderwritingTypeAndTenantId(String underwritingType, String tenantId,
-                                                               Pageable pageable);
+    Page<UnderwritingEntity> findByUnderwritingTypeAndTenantId(UnderwritingEnum.UnderwritingType underwritingType,
+                                                               String tenantId, Pageable pageable);
 
     /**
      * 根据状态和租户ID统计核保记录数量
@@ -141,5 +145,5 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
      * @param tenantId 租户ID
      * @return 核保记录数量
      */
-    long countByStatusAndTenantId(String status, String tenantId);
+    long countByStatusAndTenantId(UnderwritingEnum.UnderwritingStatus status, String tenantId);
 }

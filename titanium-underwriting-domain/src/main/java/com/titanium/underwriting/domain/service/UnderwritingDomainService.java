@@ -134,21 +134,23 @@ public class UnderwritingDomainService {
 
     /**
      * 手动审核结果处理
+     * <p>
+     * 接收核保结论类型，映射为对应的核保状态：接受承保→核保通过，拒绝投保→核保拒绝。
+     * </p>
      */
-    public UnderwritingEnum.UnderwritingStatus processManualReviewResult(String reviewResult, String reviewReason) {
+    public UnderwritingEnum.UnderwritingStatus processManualReviewResult(UnderwritingEnum.ConclusionType reviewResult,
+                                                                         String reviewReason) {
         // 验证审核结果
-        if (reviewResult == null || reviewResult.isEmpty()) {
+        if (reviewResult == null) {
             throw new UnderwritingException("MANUAL_REVIEW_RESULT_INVALID", "审核结果不能为空");
         }
 
         // 根据审核结果返回相应的核保状态
-        if ("APPROVE".equals(reviewResult)) {
-            return UnderwritingEnum.UnderwritingStatus.APPROVED;
-        } else if ("REJECT".equals(reviewResult)) {
-            return UnderwritingEnum.UnderwritingStatus.REJECTED;
-        } else {
-            throw new UnderwritingException("MANUAL_REVIEW_RESULT_ERROR", "无效的审核结果");
-        }
+        return switch (reviewResult) {
+            case ACCEPT -> UnderwritingEnum.UnderwritingStatus.APPROVED;
+            case REJECT -> UnderwritingEnum.UnderwritingStatus.REJECTED;
+            default -> throw new UnderwritingException("MANUAL_REVIEW_RESULT_ERROR", "无效的审核结果");
+        };
     }
 
     /**
