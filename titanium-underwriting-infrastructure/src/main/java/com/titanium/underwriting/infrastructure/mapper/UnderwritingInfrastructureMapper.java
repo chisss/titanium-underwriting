@@ -1,14 +1,15 @@
 package com.titanium.underwriting.infrastructure.mapper;
 
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.factory.Mappers;
+
 import com.titanium.underwriting.domain.aggregate.Underwriting;
 import com.titanium.underwriting.domain.valueobject.CustomerId;
 import com.titanium.underwriting.domain.valueobject.PolicyId;
 import com.titanium.underwriting.domain.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.domain.valueobject.UnderwritingId;
 import com.titanium.underwriting.infrastructure.entity.UnderwritingQueryEntity;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.factory.Mappers;
 
 /**
  * 核保基础设施层映射器

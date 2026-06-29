@@ -1,17 +1,18 @@
 package com.titanium.underwriting.web.mapper;
 
-import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.api.dto.UnderwritingDTO;
-import com.titanium.underwriting.web.vo.UnderwritingVO;
-import org.junit.jupiter.api.Test;
-import org.mapstruct.factory.Mappers;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
+
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.api.dto.UnderwritingDTO;
+import com.titanium.underwriting.web.vo.UnderwritingVO;
 
 /**
  * UnderwritingWebMapper 单元测试

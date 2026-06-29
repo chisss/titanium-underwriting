@@ -25,7 +25,7 @@ import lombok.Data;
  * 符合项目规约第13条：所有数据表中必须包含tenant_id字段
  */
 @Entity
-@Table(name = "t_underwriting_query", indexes = { 
+@Table(name = "t_underwriting_query", indexes = {
         @Index(name = "idx_underwriting_query_tenant_id", columnList = "tenant_id"),
         @Index(name = "idx_underwriting_query_policy_id", columnList = "policy_id, tenant_id"),
         @Index(name = "idx_underwriting_query_customer_id", columnList = "customer_id, tenant_id"),
@@ -189,18 +189,21 @@ public class UnderwritingQueryEntity {
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null)
+        }
+        if (o == null) {
             return false;
+        }
         Class<?> oEffectiveClass = o instanceof HibernateProxy
                 ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
                 : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy
                 ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
                 : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass)
+        if (thisEffectiveClass != oEffectiveClass) {
             return false;
+        }
         UnderwritingQueryEntity that = (UnderwritingQueryEntity) o;
         return getUnderwritingId() != null && Objects.equals(getUnderwritingId(), that.getUnderwritingId());
     }

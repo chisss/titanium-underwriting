@@ -1,9 +1,9 @@
 package com.titanium.underwriting.domain.event;
 
+import java.time.LocalDateTime;
+
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.domain.valueobject.UnderwritingId;
-
-import java.time.LocalDateTime;
 
 /**
  * Underwriting Status Changed Event

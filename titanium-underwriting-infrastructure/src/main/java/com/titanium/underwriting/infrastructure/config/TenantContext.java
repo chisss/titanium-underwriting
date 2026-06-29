@@ -8,7 +8,7 @@ public class TenantContext {
 
     /**
      * 设置当前租户ID
-     * 
+     *
      * @param tenantId 租户ID
      */
     public static void setCurrentTenant(String tenantId) {
@@ -17,7 +17,7 @@ public class TenantContext {
 
     /**
      * 获取当前租户ID
-     * 
+     *
      * @return 租户ID
      */
     public static String getCurrentTenant() {

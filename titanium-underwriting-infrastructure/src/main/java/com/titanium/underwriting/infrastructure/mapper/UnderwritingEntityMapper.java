@@ -23,7 +23,7 @@ public interface UnderwritingEntityMapper {
 
     /**
      * 将数据库实体转换为领域对象
-     * 
+     *
      * @param entity 数据库实体
      * @return 领域对象
      */
@@ -48,7 +48,7 @@ public interface UnderwritingEntityMapper {
 
     /**
      * 将字符串转换为UnderwritingId
-     * 
+     *
      * @param id 字符串ID
      * @return UnderwritingId对象
      */
@@ -59,7 +59,7 @@ public interface UnderwritingEntityMapper {
 
     /**
      * 将字符串转换为PolicyId
-     * 
+     *
      * @param id 字符串ID
      * @return PolicyId对象
      */
@@ -70,7 +70,7 @@ public interface UnderwritingEntityMapper {
 
     /**
      * 将字符串转换为CustomerId
-     * 
+     *
      * @param id 字符串ID
      * @return CustomerId对象
      */
@@ -89,7 +89,7 @@ public interface UnderwritingEntityMapper {
      * @return UnderwritingAmount对象
      */
     @Named("bigDecimalToUnderwritingAmount")
-    default UnderwritingAmount bigDecimalToUnderwritingAmount(BigDecimal amount, String currency) {
+    default UnderwritingAmount bigDecimalToUnderwritingAmount(BigDecimal amount) {
         return new UnderwritingAmount(amount);
     }
 }

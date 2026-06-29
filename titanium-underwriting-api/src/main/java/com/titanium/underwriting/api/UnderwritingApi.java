@@ -10,11 +10,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.titanium.underwriting.api.dto.UnderwritingDTO;
 import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.UnderwriteRequest;
-import org.springframework.web.bind.annotation.RequestMapping;
 
 /**
  * 核保服务Feign客户端

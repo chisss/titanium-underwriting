@@ -15,13 +15,6 @@
     <description>Common components for Titanium Insurance Underwriting Service</description>
 
     <dependencies>
-        <!-- Lombok -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
         <!-- Commons Lang3 -->
         <dependency>
             <groupId>org.apache.commons</groupId>

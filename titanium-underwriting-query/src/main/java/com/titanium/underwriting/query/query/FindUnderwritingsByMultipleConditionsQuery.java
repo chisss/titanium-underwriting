@@ -1,8 +1,10 @@
 package com.titanium.underwriting.query.query;
 
-import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
+
+import org.springframework.data.domain.Pageable;
+
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 
 /**
  * 多条件组合查询核保信息

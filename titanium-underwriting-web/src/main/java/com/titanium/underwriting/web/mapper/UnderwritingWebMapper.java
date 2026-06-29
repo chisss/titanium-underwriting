@@ -1,11 +1,12 @@
 package com.titanium.underwriting.web.mapper;
 
-import com.titanium.underwriting.api.dto.UnderwritingDTO;
-import com.titanium.underwriting.web.vo.UnderwritingVO;
+import java.util.List;
+
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
 
-import java.util.List;
+import com.titanium.underwriting.api.dto.UnderwritingDTO;
+import com.titanium.underwriting.web.vo.UnderwritingVO;
 
 /**
  * 核保Web层映射器 - 使用MapStruct进行DTO到VO的转换

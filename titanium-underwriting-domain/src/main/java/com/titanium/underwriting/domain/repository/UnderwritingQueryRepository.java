@@ -26,7 +26,7 @@ public interface UnderwritingQueryRepository {
 
     /**
      * 根据核保ID和租户ID查找核保记录
-     * 
+     *
      * @return 返回聚合根，不是QueryResult
      */
     Optional<Underwriting> findByUnderwritingIdAndTenantId(String underwritingId, String tenantId);
@@ -35,7 +35,7 @@ public interface UnderwritingQueryRepository {
 
     /**
      * 根据风险等级查询核保信息
-     * 
+     *
      * @return 返回聚合根分页，由Query层负责转换为QueryResult
      */
     Page<Underwriting> findByRiskLevelAndTenantId(UnderwritingEnum.RiskLevel riskLevel, String tenantId,
@@ -43,7 +43,7 @@ public interface UnderwritingQueryRepository {
 
     /**
      * 根据核保员和时间范围查询核保信息
-     * 
+     *
      * @return 返回聚合根分页，由Query层负责转换为QueryResult
      */
     Page<Underwriting> findByUnderwriterAndTimeRange(String underwriterId, LocalDateTime startTime,
@@ -51,7 +51,7 @@ public interface UnderwritingQueryRepository {
 
     /**
      * 多条件组合查询核保信息
-     * 
+     *
      * @return 返回聚合根分页，由Query层负责转换为QueryResult
      */
     Page<Underwriting> findByMultipleConditions(UnderwritingEnum.UnderwritingStatus status,
@@ -62,14 +62,14 @@ public interface UnderwritingQueryRepository {
 
     /**
      * 根据客户ID查询核保历史记录
-     * 
+     *
      * @return 返回聚合根列表，由Query层负责转换为QueryResult
      */
     List<Underwriting> findHistoryByCustomerIdAndTenantId(String customerId, String tenantId);
 
     /**
      * 查询待处理的核保任务
-     * 
+     *
      * @return 返回聚合根分页，由Query层负责转换为QueryResult
      */
     Page<Underwriting> findPendingTasks(String underwriterId, UnderwritingEnum.UnderwritingStatus status,

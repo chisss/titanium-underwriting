@@ -19,7 +19,7 @@ import com.titanium.underwriting.infrastructure.entity.UnderwritingEntity;
 public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEntity, String> {
     /**
      * 根据保单ID和租户ID查找核保记录
-     * 
+     *
      * @param policyId 保单ID
      * @param tenantId 租户ID
      * @return 核保实体
@@ -28,7 +28,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据客户ID和租户ID查找核保记录列表
-     * 
+     *
      * @param customerId 客户ID
      * @param tenantId 租户ID
      * @return 核保实体列表
@@ -37,7 +37,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据状态和租户ID查找核保记录列表
-     * 
+     *
      * @param status 核保状态
      * @param tenantId 租户ID
      * @return 核保实体列表
@@ -46,7 +46,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据核保类型和租户ID查找核保记录列表
-     * 
+     *
      * @param underwritingType 核保类型
      * @param tenantId 租户ID
      * @return 核保实体列表
@@ -56,7 +56,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据租户ID查找所有核保记录
-     * 
+     *
      * @param tenantId 租户ID
      * @return 核保实体列表
      */
@@ -64,7 +64,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 删除核保记录
-     * 
+     *
      * @param underwritingId 核保ID
      * @param tenantId 租户ID
      */
@@ -74,7 +74,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据核保ID和租户ID查找核保记录
-     * 
+     *
      * @param underwritingId 核保ID
      * @param tenantId 租户ID
      * @return 核保实体
@@ -83,7 +83,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据客户ID和租户ID分页查找核保记录
-     * 
+     *
      * @param customerId 客户ID
      * @param tenantId 租户ID
      * @param pageable 分页信息
@@ -93,7 +93,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据状态和租户ID分页查找核保记录
-     * 
+     *
      * @param status 核保状态
      * @param tenantId 租户ID
      * @param pageable 分页信息
@@ -104,7 +104,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据客户ID、状态和租户ID分页查找核保记录
-     * 
+     *
      * @param customerId 客户ID
      * @param status 核保状态
      * @param tenantId 租户ID
@@ -117,7 +117,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据创建时间范围和租户ID分页查找核保记录
-     * 
+     *
      * @param startDate 开始时间
      * @param endDate 结束时间
      * @param tenantId 租户ID
@@ -129,7 +129,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据核保类型和租户ID分页查找核保记录
-     * 
+     *
      * @param underwritingType 核保类型
      * @param tenantId 租户ID
      * @param pageable 分页信息
@@ -140,7 +140,7 @@ public interface UnderwritingJpaRepository extends JpaRepository<UnderwritingEnt
 
     /**
      * 根据状态和租户ID统计核保记录数量
-     * 
+     *
      * @param status 核保状态
      * @param tenantId 租户ID
      * @return 核保记录数量

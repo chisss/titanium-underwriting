@@ -16,7 +16,7 @@ import com.titanium.underwriting.domain.aggregate.Underwriting;
 public class AxonConfig {
     /**
      * 配置命令总线
-     * 
+     *
      * @return 命令总线实例
      */
     @Bean
@@ -26,7 +26,7 @@ public class AxonConfig {
 
     /**
      * 配置核保聚合的事件溯源仓储
-     * 
+     *
      * @param eventStore 事件存储
      * @return 事件溯源仓储实例
      */

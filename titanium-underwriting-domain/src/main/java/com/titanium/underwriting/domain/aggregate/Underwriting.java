@@ -3,9 +3,6 @@ package com.titanium.underwriting.domain.aggregate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.modelling.command.AggregateIdentifier;
@@ -13,8 +10,6 @@ import org.axonframework.modelling.command.AggregateLifecycle;
 import org.axonframework.spring.stereotype.Aggregate;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.domain.exception.UnderwritingValidationException;
-import com.titanium.underwriting.domain.exception.UnderwritingStatusException;
 import com.titanium.underwriting.domain.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.domain.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.domain.command.ManualReviewCommand;
@@ -24,12 +19,17 @@ import com.titanium.underwriting.domain.event.UnderwritingCreatedEvent;
 import com.titanium.underwriting.domain.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.domain.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.domain.event.UnderwritingStatusChangedEvent;
+import com.titanium.underwriting.domain.exception.UnderwritingStatusException;
+import com.titanium.underwriting.domain.exception.UnderwritingValidationException;
 import com.titanium.underwriting.domain.valueobject.CustomerId;
 import com.titanium.underwriting.domain.valueobject.PolicyId;
 import com.titanium.underwriting.domain.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.domain.valueobject.UnderwritingId;
 import com.titanium.underwriting.domain.valueobject.UnderwritingInput;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 
 /**

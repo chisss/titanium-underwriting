@@ -1,7 +1,8 @@
 package com.titanium.underwriting.common.exception;
 
-import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
+
+import lombok.Getter;
 
 /**
  * Underwriting Service Exception

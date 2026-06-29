@@ -1,7 +1,8 @@
 package com.titanium.underwriting.query.query;
 
-import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import org.springframework.data.domain.Pageable;
+
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 
 /**
  * 查询待处理的核保任务

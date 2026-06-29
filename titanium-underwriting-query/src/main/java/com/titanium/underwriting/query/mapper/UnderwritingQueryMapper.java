@@ -27,6 +27,7 @@ public interface UnderwritingQueryMapper {
     @Mapping(source = "underwritingId.value", target = "underwritingId")
     @Mapping(source = "policyId.value", target = "policyId")
     @Mapping(source = "customerId.value", target = "customerId")
+    @Mapping(source = "amount.amount", target = "amount")
     UnderwritingQueryResult toQueryResult(Underwriting underwriting);
 
     /**

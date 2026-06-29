@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Optional;
 
 import org.axonframework.queryhandling.QueryHandler;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
@@ -31,7 +30,6 @@ public class UnderwritingConditionQueryHandler {
     private final UnderwritingRepository   underwritingRepository;
     private final UnderwritingQueryService underwritingQueryService;
 
-    @Autowired
     public UnderwritingConditionQueryHandler(UnderwritingRepository underwritingRepository,
                                              UnderwritingQueryService underwritingQueryService) {
         this.underwritingRepository = underwritingRepository;

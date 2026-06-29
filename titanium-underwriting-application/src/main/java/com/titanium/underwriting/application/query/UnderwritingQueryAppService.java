@@ -4,12 +4,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import com.titanium.underwriting.query.entity.UnderwritingQueryResult;
-import com.titanium.underwriting.query.entity.UnderwritingStatisticsResult;
-import com.titanium.underwriting.query.query.FindUnderwritingByIdQuery;
-import com.titanium.underwriting.query.query.FindUnderwritingByPolicyIdQuery;
-import com.titanium.underwriting.query.query.FindUnderwritingsByRiskLevelQuery;
-import com.titanium.underwriting.query.query.FindUnderwritingsByStatusQuery;
 import org.axonframework.queryhandling.QueryGateway;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,11 +15,17 @@ import com.titanium.underwriting.domain.aggregate.Underwriting;
 import com.titanium.underwriting.domain.valueobject.CustomerId;
 import com.titanium.underwriting.domain.valueobject.PolicyId;
 import com.titanium.underwriting.domain.valueobject.UnderwritingId;
+import com.titanium.underwriting.query.entity.UnderwritingQueryResult;
+import com.titanium.underwriting.query.entity.UnderwritingStatisticsResult;
 import com.titanium.underwriting.query.query.FindPendingUnderwritingTasksQuery;
+import com.titanium.underwriting.query.query.FindUnderwritingByIdQuery;
+import com.titanium.underwriting.query.query.FindUnderwritingByPolicyIdQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingHistoryByCustomerQuery;
-import com.titanium.underwriting.query.query.FindUnderwritingsByMultipleConditionsQuery;
-import com.titanium.underwriting.query.query.FindUnderwritingsByUnderwriterQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingStatisticsQuery;
+import com.titanium.underwriting.query.query.FindUnderwritingsByMultipleConditionsQuery;
+import com.titanium.underwriting.query.query.FindUnderwritingsByRiskLevelQuery;
+import com.titanium.underwriting.query.query.FindUnderwritingsByStatusQuery;
+import com.titanium.underwriting.query.query.FindUnderwritingsByUnderwriterQuery;
 
 /**
  * 核保查询服务 基于保险业务全生命周期核保承保阶段的业务需求扩展
