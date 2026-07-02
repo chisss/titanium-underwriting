@@ -5,48 +5,45 @@ import java.io.Serializable;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 
 import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
 
 /**
  * 核保输入容器值对象
  * <p>
- * 聚合四类险种专属核保输入，按实际填充的输入综合评估整体风险等级。
- * 不同险种填充不同输入：寿险/重疾填健康告知+体检；意外险填职业；车险填车辆风险。
+ * 聚合四类险种专属核保输入，按实际填充的输入综合评估整体风险等级。 不同险种填充不同输入：寿险/重疾填健康告知+体检；意外险填职业；车险填车辆风险。
  * 容器内聚整体风险等级判定逻辑（充血模型），替代聚合根中"金额硬编码"的简单规则。
  * </p>
  * <p>
  * TODO 规则引擎接入：当前为内置加权评分规则，后续应下沉至 titanium-rule-engine 模块按租户/险种配置。
  * </p>
  *
+ * @param healthDeclaration 健康告知（寿险/重疾/医疗）
+ * @param physicalExamResult 体检报告（高保额寿险/重疾）
+ * @param occupationInfo 职业信息（意外险/定期寿险）
+ * @param vehicleRiskInfo 车辆风险信息（车险）
  * @author wei.sun
  * @since 2026/6/23
  */
-@Getter
 @Builder
-@EqualsAndHashCode
-public class UnderwritingInput implements Serializable {
+public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExamResult physicalExamResult,
+                                OccupationInfo occupationInfo,
+                                VehicleRiskInfo vehicleRiskInfo)
+        implements
+            Serializable {
 
-    /** 次标准体风险阈值（评分 >= 该值判为次标准体） */
+    /**
+     * 次标准体风险阈值（评分 >= 该值判为次标准体）
+     */
     private static final int THRESHOLD_SUB_STANDARD = 30;
 
-    /** 高风险体风险阈值 */
+    /**
+     * 高风险体风险阈值
+     */
     private static final int THRESHOLD_HIGH_RISK = 60;
 
-    /** 不可保体风险阈值 */
+    /**
+     * 不可保体风险阈值
+     */
     private static final int THRESHOLD_UNINSURABLE = 85;
-
-    /** 健康告知（寿险/重疾/医疗） */
-    private final HealthDeclaration healthDeclaration;
-
-    /** 体检报告（高保额寿险/重疾） */
-    private final PhysicalExamResult physicalExamResult;
-
-    /** 职业信息（意外险/定期寿险） */
-    private final OccupationInfo occupationInfo;
-
-    /** 车辆风险信息（车险） */
-    private final VehicleRiskInfo vehicleRiskInfo;
 
     /**
      * 是否已提供任一险种专属输入
@@ -54,8 +51,8 @@ public class UnderwritingInput implements Serializable {
      * @return true 表示至少存在一项核保输入
      */
     public boolean hasAnyInput() {
-        return healthDeclaration != null || physicalExamResult != null
-                || occupationInfo != null || vehicleRiskInfo != null;
+        return healthDeclaration != null || physicalExamResult != null || occupationInfo != null
+                || vehicleRiskInfo != null;
     }
 
     /**

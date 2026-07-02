@@ -45,7 +45,7 @@ public class UnderwritingDomainService {
      */
     private void validateUnderwritingConditions(UnderwriteCommand command, Underwriting underwriting) {
         // 检查核保请求是否已过期
-        if (underwriting.getCreatedAt().plusDays(7).isBefore(LocalDateTime.now())) {
+        if (underwriting.getCreateTime().plusDays(7).isBefore(LocalDateTime.now())) {
             throw new UnderwritingException("UNDERWRITING_REQUEST_EXPIRED", "核保请求已过期");
         }
 
@@ -55,7 +55,7 @@ public class UnderwritingDomainService {
         }
 
         // 检查核保金额是否有效
-        if (command.amount().getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+        if (command.amount().amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new UnderwritingException("UNDERWRITING_AMOUNT_INVALID", "核保金额无效");
         }
     }
@@ -90,7 +90,7 @@ public class UnderwritingDomainService {
         int score = 0;
 
         // 投保金额评分
-        BigDecimal amount = command.amount().getAmount();
+        BigDecimal amount = command.amount().amount();
         if (amount.compareTo(new BigDecimal(100000)) > 0) {
             score += 20;
         } else if (amount.compareTo(new BigDecimal(50000)) > 0) {
@@ -158,6 +158,6 @@ public class UnderwritingDomainService {
      */
     public boolean isEligibleForAutoUnderwriting(UnderwriteCommand command) {
         // 例如：只有当投保金额低于一定阈值时才允许自动核保
-        return command.amount().getAmount().compareTo(new BigDecimal(100000)) <= 0;
+        return command.amount().amount().compareTo(new BigDecimal(100000)) <= 0;
     }
 }

@@ -50,6 +50,12 @@
             <groupId>com.titanium</groupId>
             <artifactId>titanium-metadata</artifactId>
         </dependency>
+        <!-- 通用内核（聚合根基类 BaseAggregate） -->
+        <dependency>
+            <groupId>com.titanium</groupId>
+            <artifactId>titanium-common</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
         <!-- Spring Data Commons -->
         <dependency>
             <groupId>org.springframework.data</groupId>

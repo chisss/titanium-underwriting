@@ -44,7 +44,7 @@ public class UnderwritingProjectionEventHandler {
     @EventHandler
     @Transactional
     public void on(UnderwritingCreatedEvent event) {
-        String underwritingId = event.underwritingId().getValue();
+        String underwritingId = event.underwritingId().value();
         log.info("[读模型投影] 核保创建: underwritingId={}, tenantId={}", underwritingId, event.tenantId());
 
         UnderwritingQueryEntity entity = underwritingQueryJpaRepository.findById(underwritingId)
@@ -52,17 +52,17 @@ public class UnderwritingProjectionEventHandler {
 
         LocalDateTime now = LocalDateTime.now();
         entity.setUnderwritingId(underwritingId);
-        entity.setPolicyId(event.policyId().getValue());
-        entity.setCustomerId(event.customerId().getValue());
+        entity.setPolicyId(event.policyId().value());
+        entity.setCustomerId(event.customerId().value());
         if (event.amount() != null) {
-            entity.setAmount(event.amount().getAmount());
+            entity.setAmount(event.amount().amount());
         }
         entity.setUnderwritingType(event.underwritingType());
         // 新建核保初始状态为待核保
         entity.setStatus(UnderwritingEnum.UnderwritingStatus.PENDING);
-        entity.setCreatedAt(event.createdAt() != null ? event.createdAt() : now);
+        entity.setCreateTime(event.createdAt() != null ? event.createdAt() : now);
         entity.setCreatedBy(event.createdBy());
-        entity.setUpdatedAt(now);
+        entity.setUpdateTime(now);
         entity.setUpdatedBy(event.createdBy());
         entity.setTenantId(event.tenantId());
 
@@ -75,13 +75,13 @@ public class UnderwritingProjectionEventHandler {
     @EventHandler
     @Transactional
     public void on(UnderwritingStatusChangedEvent event) {
-        String underwritingId = event.underwritingId().getValue();
+        String underwritingId = event.underwritingId().value();
         log.info("[读模型投影] 核保状态变更: underwritingId={}, {} -> {}", underwritingId, event.oldStatus(),
                 event.newStatus());
 
         underwritingQueryJpaRepository.findById(underwritingId).ifPresentOrElse(entity -> {
             entity.setStatus(event.newStatus());
-            entity.setUpdatedAt(event.changedAt() != null ? event.changedAt() : LocalDateTime.now());
+            entity.setUpdateTime(event.changedAt() != null ? event.changedAt() : LocalDateTime.now());
             entity.setUpdatedBy(event.changedBy());
             // 拒保/退回类状态：记录原因到 rejectReason
             if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED

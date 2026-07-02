@@ -9,41 +9,30 @@ import java.util.List;
 
 import com.titanium.underwriting.domain.exception.UnderwritingValidationException;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-
 /**
  * 健康告知值对象
  * <p>
  * 寿险/重疾/医疗险核保的核心输入，对应 {@code UnderwritingInputType.HEALTH_DECLARATION}。
- * 采集被保人既往病史、家族遗传史、吸烟习惯及身高体重，用于评估健康风险。
- * 值对象内聚 BMI 计算与健康风险评分逻辑（充血模型）。
+ * 采集被保人既往病史、家族遗传史、吸烟习惯及身高体重，用于评估健康风险。 值对象内聚 BMI 计算与健康风险评分逻辑（充血模型）。
  * </p>
  *
+ * @param medicalHistory 既往病史列表（如高血压、糖尿病等），无则为空列表
+ * @param familyHistory 家族遗传病史列表，无则为空列表
+ * @param smoking 是否吸烟
+ * @param heightCm 身高（厘米）
+ * @param weightKg 体重（千克）
  * @author wei.sun
  * @since 2026/6/23
  */
-@Getter
-@EqualsAndHashCode
-public class HealthDeclaration implements Serializable {
+public record HealthDeclaration(List<String> medicalHistory, List<String> familyHistory, boolean smoking,
+                                BigDecimal heightCm, BigDecimal weightKg)
+        implements
+            Serializable {
 
-    /** 值对象名（用于校验异常上下文） */
+    /**
+     * 值对象名（用于校验异常上下文）
+     */
     private static final String VO_NAME = "HealthDeclaration";
-
-    /** 既往病史列表（如高血压、糖尿病等），无则为空列表 */
-    private final List<String> medicalHistory;
-
-    /** 家族遗传病史列表，无则为空列表 */
-    private final List<String> familyHistory;
-
-    /** 是否吸烟 */
-    private final boolean smoking;
-
-    /** 身高（厘米） */
-    private final BigDecimal heightCm;
-
-    /** 体重（千克） */
-    private final BigDecimal weightKg;
 
     public HealthDeclaration(List<String> medicalHistory, List<String> familyHistory, boolean smoking,
                              BigDecimal heightCm, BigDecimal weightKg) {

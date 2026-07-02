@@ -5,43 +5,40 @@ import java.math.BigDecimal;
 
 import com.titanium.underwriting.domain.exception.UnderwritingValidationException;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-
 /**
  * 职业信息值对象
  * <p>
- * 意外险/定期寿险核保输入，对应 {@code UnderwritingInputType.OCCUPATION}。
- * 职业类别 1-6 类（数字越大风险越高），配合危险系数用于意外险风险定价。
- * 值对象内聚职业风险评分逻辑（充血模型）。
+ * 意外险/定期寿险核保输入，对应 {@code UnderwritingInputType.OCCUPATION}。 职业类别 1-6
+ * 类（数字越大风险越高），配合危险系数用于意外险风险定价。 值对象内聚职业风险评分逻辑（充血模型）。
  * </p>
  *
+ * @param occupationName 职业名称
+ * @param occupationCategory 职业类别（1-6 类，类别越高风险越大）
+ * @param riskFactor 危险系数（>=1.0，用于费率加成）
  * @author wei.sun
  * @since 2026/6/23
  */
-@Getter
-@EqualsAndHashCode
-public class OccupationInfo implements Serializable {
+public record OccupationInfo(String occupationName, int occupationCategory,
+                             BigDecimal riskFactor)
+        implements
+            Serializable {
 
-    /** 值对象名（用于校验异常上下文） */
+    /**
+     * 值对象名（用于校验异常上下文）
+     */
     private static final String VO_NAME = "OccupationInfo";
 
-    /** 最低职业类别 */
+    /**
+     * 最低职业类别
+     */
     private static final int MIN_CATEGORY = 1;
 
-    /** 最高职业类别（拒保类） */
+    /**
+     * 最高职业类别（拒保类）
+     */
     private static final int MAX_CATEGORY = 6;
 
-    /** 职业名称 */
-    private final String occupationName;
-
-    /** 职业类别（1-6 类，类别越高风险越大） */
-    private final int occupationCategory;
-
-    /** 危险系数（>=1.0，用于费率加成） */
-    private final BigDecimal riskFactor;
-
-    public OccupationInfo(String occupationName, int occupationCategory, BigDecimal riskFactor) {
+    public OccupationInfo {
         if (occupationName == null || occupationName.trim().isEmpty()) {
             throw new UnderwritingValidationException(VO_NAME, "occupationName", "职业名称不能为空");
         }
@@ -51,9 +48,6 @@ public class OccupationInfo implements Serializable {
         if (riskFactor == null || riskFactor.compareTo(BigDecimal.ZERO) <= 0) {
             throw new UnderwritingValidationException(VO_NAME, "riskFactor", "危险系数必须大于零");
         }
-        this.occupationName = occupationName;
-        this.occupationCategory = occupationCategory;
-        this.riskFactor = riskFactor;
     }
 
     /**

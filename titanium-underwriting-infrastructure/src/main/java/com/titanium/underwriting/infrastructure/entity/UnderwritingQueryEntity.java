@@ -6,6 +6,7 @@ import java.util.Objects;
 
 import org.hibernate.proxy.HibernateProxy;
 
+import com.titanium.common.jpa.BaseView;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 
 import jakarta.persistence.Column;
@@ -17,12 +18,16 @@ import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.Version;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * 核保查询实体 - Infrastructure层数据库实体 用于数据库持久化 基于保险业务全生命周期核保承保阶段的关键信息设计
  * 符合项目规约第13条：所有数据表中必须包含tenant_id字段
+ * <p>
+ * 继承 {@link BaseView}，复用租户ID/创建更新时间/乐观锁版本字段，
+ * 原 created_at/updated_at 统一为基类 create_time/update_time。
+ * </p>
  */
 @Entity
 @Table(name = "t_underwriting_query", indexes = {
@@ -32,10 +37,11 @@ import lombok.Data;
         @Index(name = "idx_underwriting_query_status", columnList = "status, tenant_id"),
         @Index(name = "idx_underwriting_query_risk_level", columnList = "risk_level, tenant_id"),
         @Index(name = "idx_underwriting_query_underwriter", columnList = "underwriter_id, tenant_id"),
-        @Index(name = "idx_underwriting_query_created_at", columnList = "created_at, tenant_id"),
+        @Index(name = "idx_underwriting_query_created_at", columnList = "create_time, tenant_id"),
         @Index(name = "idx_underwriting_query_audit_type", columnList = "audit_type, tenant_id") })
-@Data
-public class UnderwritingQueryEntity {
+@Getter
+@Setter
+public class UnderwritingQueryEntity extends BaseView {
 
     // ========== 主键和基础信息 ==========
     @Id
@@ -151,40 +157,27 @@ public class UnderwritingQueryEntity {
     private BigDecimal                          discountAmount;
 
     // ========== 系统字段 ==========
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime                       createdAt;
-
     @Column(name = "created_by", length = 50, nullable = false)
     private String                              createdBy;
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime                       updatedAt;
-
     @Column(name = "updated_by", length = 50, nullable = false)
     private String                              updatedBy;
-
-    @Column(name = "tenant_id", length = 50, nullable = false)
-    private String                              tenantId;
-
-    @Version
-    @Column(name = "version")
-    private Long                                version;
 
     // ========== JPA生命周期回调 ==========
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
-        if (createdAt == null) {
-            createdAt = now;
+        if (getCreateTime() == null) {
+            setCreateTime(now);
         }
-        if (updatedAt == null) {
-            updatedAt = now;
+        if (getUpdateTime() == null) {
+            setUpdateTime(now);
         }
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        setUpdateTime(LocalDateTime.now());
     }
 
     @Override

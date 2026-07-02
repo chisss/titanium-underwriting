@@ -8,40 +8,30 @@ import java.util.List;
 
 import com.titanium.underwriting.domain.exception.UnderwritingValidationException;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-
 /**
  * 体检报告值对象
  * <p>
- * 高保额寿险/重疾核保输入，对应 {@code UnderwritingInputType.PHYSICAL_EXAM}。
- * 采集 BMI、血压、血糖及异常项清单，值对象内聚体检风险评分逻辑（充血模型）。
+ * 高保额寿险/重疾核保输入，对应 {@code UnderwritingInputType.PHYSICAL_EXAM}。 采集
+ * BMI、血压、血糖及异常项清单，值对象内聚体检风险评分逻辑（充血模型）。
  * </p>
  *
+ * @param bmi 身体质量指数 BMI
+ * @param systolicPressure 收缩压（高压，mmHg）
+ * @param diastolicPressure 舒张压（低压，mmHg）
+ * @param bloodGlucose 空腹血糖（mmol/L）
+ * @param abnormalItems 体检异常项清单，无异常则为空列表
  * @author wei.sun
  * @since 2026/6/23
  */
-@Getter
-@EqualsAndHashCode
-public class PhysicalExamResult implements Serializable {
+public record PhysicalExamResult(BigDecimal bmi, BigDecimal systolicPressure, BigDecimal diastolicPressure,
+                                 BigDecimal bloodGlucose, List<String> abnormalItems)
+        implements
+            Serializable {
 
-    /** 值对象名（用于校验异常上下文） */
+    /**
+     * 值对象名（用于校验异常上下文）
+     */
     private static final String VO_NAME = "PhysicalExamResult";
-
-    /** 身体质量指数 BMI */
-    private final BigDecimal bmi;
-
-    /** 收缩压（高压，mmHg） */
-    private final BigDecimal systolicPressure;
-
-    /** 舒张压（低压，mmHg） */
-    private final BigDecimal diastolicPressure;
-
-    /** 空腹血糖（mmol/L） */
-    private final BigDecimal bloodGlucose;
-
-    /** 体检异常项清单，无异常则为空列表 */
-    private final List<String> abnormalItems;
 
     public PhysicalExamResult(BigDecimal bmi, BigDecimal systolicPressure, BigDecimal diastolicPressure,
                               BigDecimal bloodGlucose, List<String> abnormalItems) {

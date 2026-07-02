@@ -9,6 +9,7 @@ import org.axonframework.modelling.command.AggregateIdentifier;
 import org.axonframework.modelling.command.AggregateLifecycle;
 import org.axonframework.spring.stereotype.Aggregate;
 
+import com.titanium.common.domain.BaseAggregate;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.domain.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.domain.command.DecideUnderwritingCommand;
@@ -27,19 +28,20 @@ import com.titanium.underwriting.domain.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.domain.valueobject.UnderwritingId;
 import com.titanium.underwriting.domain.valueobject.UnderwritingInput;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Underwriting Aggregate Root
+ * <p>
+ * 继承 {@link BaseAggregate}，复用租户ID、创建时间、更新时间。原 createdAt/updatedAt 统一为基类
+ * createTime/updateTime；createdBy/updatedBy 为核保域操作人字段，保留。
+ * </p>
  */
 @Aggregate
-@Builder(builderMethodName = "builder")
-@AllArgsConstructor(access = AccessLevel.PRIVATE)  // 为 Builder 提供全参构造函数
+@SuperBuilder(builderMethodName = "builder")
 @Getter
-public class Underwriting {
+public class Underwriting extends BaseAggregate {
     /** 自动核保金额上限：超过该金额且无险种输入时转人工复核（回退规则） */
     private static final BigDecimal AUTO_APPROVE_AMOUNT_LIMIT = BigDecimal.valueOf(100000);
 
@@ -58,9 +60,7 @@ public class Underwriting {
     private UnderwritingEnum.ConclusionType     conclusionType;
     private String                              rejectReason;
     private String                              reviewComments;
-    private LocalDateTime                       createdAt;
     private String                              createdBy;
-    private LocalDateTime                       updatedAt;
     private String                              updatedBy;
 
     // Command Handlers
@@ -97,7 +97,7 @@ public class Underwriting {
         }
         // 回退规则：金额超过自动核保阈值需转人工复核
         // TODO 规则引擎接入：金额阈值应改由 titanium-rule-engine 按险种/租户配置
-        if (command.amount().getAmount().compareTo(AUTO_APPROVE_AMOUNT_LIMIT) > 0) {
+        if (command.amount().amount().compareTo(AUTO_APPROVE_AMOUNT_LIMIT) > 0) {
             return UnderwritingEnum.UnderwritingStatus.REVIEW;
         }
         return UnderwritingEnum.UnderwritingStatus.APPROVED;
@@ -208,9 +208,10 @@ public class Underwriting {
         this.amount = event.amount();
         this.underwritingType = event.underwritingType();
         this.status = UnderwritingEnum.UnderwritingStatus.PENDING;
-        this.createdAt = event.createdAt();
+        this.tenantId = event.tenantId();
+        this.createTime = event.createdAt();
         this.createdBy = event.createdBy();
-        this.updatedAt = event.createdAt();
+        this.updateTime = event.createdAt();
         this.updatedBy = event.createdBy();
     }
 
@@ -223,14 +224,14 @@ public class Underwriting {
         if (UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW.equals(event.newStatus())) {
             this.reviewComments = event.reason();
         }
-        this.updatedAt = event.changedAt();
+        this.updateTime = event.changedAt();
         this.updatedBy = event.changedBy();
     }
 
     @EventSourcingHandler
     public void on(UnderwritingInputSubmittedEvent event) {
         this.underwritingInput = event.underwritingInput();
-        this.updatedAt = event.submittedAt();
+        this.updateTime = event.submittedAt();
         this.updatedBy = event.submittedBy();
     }
 
@@ -239,7 +240,7 @@ public class Underwriting {
         this.riskLevel = event.riskLevel();
         this.conclusionType = event.conclusionType();
         this.status = event.newStatus();
-        this.updatedAt = event.decidedAt();
+        this.updateTime = event.decidedAt();
         this.updatedBy = event.decidedBy();
     }
 

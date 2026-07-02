@@ -8,8 +8,5 @@ import com.titanium.underwriting.domain.valueobject.UnderwritingId;
  * 用于查询核保详情
  * </p>
  */
-public record UnderwritingQuery(
-        UnderwritingId underwritingId,
-        String tenantId
-) {
+public record UnderwritingQuery(UnderwritingId underwritingId, String tenantId) {
 }

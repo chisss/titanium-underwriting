@@ -6,18 +6,10 @@ import java.math.RoundingMode;
 import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.underwriting.domain.exception.UnderwritingValidationException;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-
 /**
  * Underwriting Amount Value Object
  */
-@Getter
-@EqualsAndHashCode
-public class UnderwritingAmount {
-    private final BigDecimal   amount;
-    private final CurrencyEnum currency;
-
+public record UnderwritingAmount(BigDecimal amount, CurrencyEnum currency) {
     public UnderwritingAmount(BigDecimal amount, CurrencyEnum currency) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new UnderwritingValidationException("UnderwritingAmount", "amount", "核保金额必须大于或等于零");
