@@ -1,6 +1,6 @@
 package com.titanium.underwriting.query.query;
 
-import com.titanium.underwriting.domain.valueobject.UnderwritingId;
+import com.titanium.underwriting.valueobject.UnderwritingId;
 
 /**
  * 查询特定ID的核保信息

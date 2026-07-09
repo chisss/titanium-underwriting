@@ -15,6 +15,12 @@
     <description>Common components for Titanium Insurance Underwriting Service</description>
 
     <dependencies>
+        <!-- 元数据共享库（BaseEnum 等） -->
+        <dependency>
+            <groupId>com.titanium</groupId>
+            <artifactId>titanium-metadata</artifactId>
+        </dependency>
+
         <!-- Commons Lang3 -->
         <dependency>
             <groupId>org.apache.commons</groupId>

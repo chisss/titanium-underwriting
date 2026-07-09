@@ -8,12 +8,12 @@ import org.mapstruct.Mappings;
 import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 
-import com.titanium.underwriting.domain.aggregate.Underwriting;
-import com.titanium.underwriting.domain.valueobject.CustomerId;
-import com.titanium.underwriting.domain.valueobject.PolicyId;
-import com.titanium.underwriting.domain.valueobject.UnderwritingAmount;
-import com.titanium.underwriting.domain.valueobject.UnderwritingId;
+import com.titanium.underwriting.aggregate.Underwriting;
 import com.titanium.underwriting.infrastructure.entity.UnderwritingEntity;
+import com.titanium.underwriting.valueobject.CustomerId;
+import com.titanium.underwriting.valueobject.PolicyId;
+import com.titanium.underwriting.valueobject.UnderwritingAmount;
+import com.titanium.underwriting.valueobject.UnderwritingId;
 
 /**
  * 核保实体映射器 将数据库实体转换为领域对象，反之亦然

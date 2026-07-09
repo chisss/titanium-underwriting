@@ -1,0 +1,81 @@
+# Spring Boot Configuration
+spring:
+  # Application name for service identification
+  application:
+    name: titanium-underwriting-service
+  
+  # Database configuration
+  datasource:
+    url: jdbc:mysql://localhost:3306/titanium_underwriting?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  # JPA/Hibernate configuration
+  jpa:
+    hibernate:
+      ddl-auto: update  # Automatically update database schema
+    show-sql: true      # Show SQL statements in logs
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL5InnoDBDialect  # MySQL dialect for Hibernate
+  
+  # Kafka configuration for event sourcing
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: underwriting-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.titanium.underwriting.event  # Trusted packages for JSON deserialization
+  
+  # OpenFeign configuration for service-to-service communication
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 5000  # Connection timeout in milliseconds
+            readTimeout: 5000     # Read timeout in milliseconds
+            loggerLevel: basic    # Feign logging level
+
+# Server configuration
+server:
+  port: 8083  # HTTP port for the application
+
+# Axon Framework configuration for CQRS and event sourcing
+axon:
+  eventhandling:
+    processors:
+      underwritingEvents:
+        source: kafkaMessageSource  # Event source for underwriting events
+      # CQRS 读侧投影处理组（与写侧隔离）；开启 DLQ 保障读模型投影最终一致
+      underwriting-query-group:
+        dlq:
+          enabled: true
+          max-size: 1000
+          cache:
+            enabled: true
+            size: 2048
+        batchSize: 10
+      # 跨域外发处理组：核保决策事件推送 Kafka（异步回流 policy）
+      underwriting-kafka-group:
+        mode: subscribing
+  eventstore:
+    kafka:
+      topic-prefix: underwriting    # Kafka topic prefix for event store
+      client-id: underwriting-service  # Kafka client ID
+  commandhandling:
+    pool-size: 10  # Number of threads for command handling
+
+# Logging configuration
+logging:
+  level:
+    com.titanium.underwriting: INFO  # Application logging level
+    org.axonframework: INFO          # Axon Framework logging level
+    org.springframework.kafka: INFO  # Spring Kafka logging level
+    org.hibernate.SQL: DEBUG         # Hibernate SQL logging level
