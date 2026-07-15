@@ -41,7 +41,10 @@ public class KafkaConfig {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
+        // 发布器以 fastjson2 生成 JSON String 发送（UnderwritingKafkaEventPublisher），故 value 序列化器为
+        // StringSerializer；原误配为 JacksonJsonDeserializer（反序列化器当序列化器用）会导致 Producer 创建失败、
+        // 核保决策事件永不出站、policy 侧异步回流断裂。
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 

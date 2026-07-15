@@ -14,11 +14,16 @@ spring:
   # JPA/Hibernate configuration
   jpa:
     hibernate:
-      ddl-auto: update  # Automatically update database schema
+      ddl-auto: none  # 强制关闭,交由 liquibase 管理
     show-sql: true      # Show SQL statements in logs
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL5InnoDBDialect  # MySQL dialect for Hibernate
+
+  # Liquibase 数据库版本管理
+  liquibase:
+    enabled: true
+    change-log: classpath:liquibase/changelog-master.xml
   
   # Kafka configuration for event sourcing
   kafka:

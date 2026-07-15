@@ -20,13 +20,15 @@ import lombok.Builder;
  * @param physicalExamResult 体检报告（高保额寿险/重疾）
  * @param occupationInfo 职业信息（意外险/定期寿险）
  * @param vehicleRiskInfo 车辆风险信息（车险）
+ * @param financialAssessment 财务评估（高保额寿险财务核保）
  * @author wei.sun
  * @since 2026/6/23
  */
 @Builder
 public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExamResult physicalExamResult,
                                 OccupationInfo occupationInfo,
-                                VehicleRiskInfo vehicleRiskInfo)
+                                VehicleRiskInfo vehicleRiskInfo,
+                                FinancialAssessment financialAssessment)
         implements
             Serializable {
 
@@ -52,7 +54,7 @@ public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExa
      */
     public boolean hasAnyInput() {
         return healthDeclaration != null || physicalExamResult != null || occupationInfo != null
-                || vehicleRiskInfo != null;
+                || vehicleRiskInfo != null || financialAssessment != null;
     }
 
     /**
@@ -77,7 +79,19 @@ public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExa
         if (vehicleRiskInfo != null) {
             score = Math.max(score, vehicleRiskInfo.riskScore());
         }
+        if (financialAssessment != null) {
+            score = Math.max(score, financialAssessment.riskScore());
+        }
         return score;
+    }
+
+    /**
+     * 是否需人工财务核保（高保额寿险保额显著超出财务合理范围）。
+     *
+     * @return 提供了财务评估且触发人工财务核保阈值时返回 {@code true}
+     */
+    public boolean requiresManualFinancialReview() {
+        return financialAssessment != null && financialAssessment.requiresManualFinancialReview();
     }
 
     /**

@@ -23,6 +23,7 @@ import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.exception.UnderwritingStatusException;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 import com.titanium.underwriting.valueobject.CustomerId;
+import com.titanium.underwriting.valueobject.ExtraPremium;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -45,6 +46,12 @@ public class Underwriting extends BaseAggregate {
     /** 自动核保金额上限：超过该金额且无险种输入时转人工复核（回退规则） */
     private static final BigDecimal AUTO_APPROVE_AMOUNT_LIMIT = BigDecimal.valueOf(100000);
 
+    /** 次标准体风险评分基准（评分超出该基准的部分折算加费幅度，与 UnderwritingInput 阈值一致） */
+    private static final int SUB_STANDARD_SCORE_BASE = 30;
+
+    /** 每 1 分风险评分折算的加费率（超出基准部分，如 0.02 表示每分加费 2%） */
+    private static final double EXTRA_PREMIUM_RATE_PER_SCORE = 0.02d;
+
     @AggregateIdentifier
     private UnderwritingId                      underwritingId;
     private PolicyId                            policyId;
@@ -58,6 +65,8 @@ public class Underwriting extends BaseAggregate {
     private UnderwritingEnum.RiskLevel          riskLevel;
     /** 核保结论（接受/修改条件/拒绝/延期），由核保决策产出 */
     private UnderwritingEnum.ConclusionType     conclusionType;
+    /** 加费明细（次标准体修改条件承保时产出，标准体/拒保为 null） */
+    private ExtraPremium                        extraPremium;
     private String                              rejectReason;
     private String                              reviewComments;
     private String                              createdBy;
@@ -136,11 +145,34 @@ public class Underwriting extends BaseAggregate {
         // 核保结论映射核保状态
         UnderwritingEnum.UnderwritingStatus oldStatus = this.status;
         UnderwritingEnum.UnderwritingStatus newStatus = mapConclusionToStatus(conclusion);
+        // 次标准体修改条件承保：产出结构化加费明细，供 billing 计算实收保费
+        ExtraPremium derivedExtraPremium = deriveExtraPremium(conclusion, riskScore);
 
         AggregateLifecycle.apply(new UnderwritingDecidedEvent(command.underwritingId(), this.policyId,
                 assessedRiskLevel, conclusion,
-                command.auditType(), oldStatus, newStatus, riskScore, LocalDateTime.now(), command.decidedBy(),
-                command.tenantId()));
+                command.auditType(), oldStatus, newStatus, riskScore, derivedExtraPremium, LocalDateTime.now(),
+                command.decidedBy(), command.tenantId()));
+    }
+
+    /**
+     * 派生加费明细（充血模型）：仅次标准体「修改条件承保」（MODIFY）产出加费，其余结论无加费返回 null。
+     * <p>
+     * 加费率按风险评分超出标准体阈值的幅度线性折算——评分越高加费越多，封顶 100%。这是核保域内聚的
+     * 加费决策规则（替代原先仅 RATED 状态码），产出的 {@link ExtraPremium} 随决策事件透传 billing 域。
+     * </p>
+     *
+     * @param conclusion 核保结论
+     * @param riskScore 综合风险评分
+     * @return 加费明细；非 MODIFY 结论返回 null
+     */
+    private ExtraPremium deriveExtraPremium(UnderwritingEnum.ConclusionType conclusion, int riskScore) {
+        if (conclusion != UnderwritingEnum.ConclusionType.MODIFY) {
+            return null;
+        }
+        // 次标准体评分区间 [30,60)，超出标准体阈值 30 的部分每 1 分折算 2% 加费，封顶 100%
+        int excess = Math.max(0, riskScore - SUB_STANDARD_SCORE_BASE);
+        double ratio = Math.min(1.0d, excess * EXTRA_PREMIUM_RATE_PER_SCORE);
+        return ExtraPremium.ofRatio(BigDecimal.valueOf(ratio), null, "次标准体核保加费（风险评分 " + riskScore + "）");
     }
 
     /**
@@ -240,6 +272,7 @@ public class Underwriting extends BaseAggregate {
     public void on(UnderwritingDecidedEvent event) {
         this.riskLevel = event.riskLevel();
         this.conclusionType = event.conclusionType();
+        this.extraPremium = event.extraPremium();
         this.status = event.newStatus();
         this.updateTime = event.decidedAt();
         this.updatedBy = event.decidedBy();

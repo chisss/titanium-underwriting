@@ -49,7 +49,7 @@
 |--------|------|--------|
 | `-common` | 常量、自定义异常 | `UnderwritingConstants`、`UnderwritingException` |
 | `-domain` | 领域核心：聚合根、命令、事件、值对象、仓储接口、领域服务 | `Underwriting`、3 命令、2 事件、4 值对象 |
-| `-infrastructure` | 持久化与配置：JPA 实体、仓储实现、Axon/Kafka 配置 | `UnderwritingEntity`、`UnderwritingQueryEntity`、`AxonConfig`、`KafkaConfig` |
+| `-infrastructure` | 配置与出口：Axon/Kafka 配置、事件发布（写侧纯事件溯源，无 JPA 写表/`*Entity`/`Jpa*Repository`） | `AxonConfig`、`KafkaConfig`、`UnderwritingKafkaEventPublisher` |
 | `-application` | 命令/查询编排（CommandGateway / QueryGateway） | `UnderwritingCommandService`、`UnderwritingQueryAppService` |
 | `-api` | Feign 接口定义、DTO、Request | `UnderwritingApi`、`UnderwritingDTO` |
 | `-web` | REST Controller、VO、租户拦截器 | `UnderwritingApiController`、`UnderwritingController` |
@@ -106,6 +106,8 @@
 
 > 🔴 **CQRS 读写严重失衡**：写侧仅 3 命令，读侧 11 查询 / 9 Handler。读模型表 `t_underwriting_query` 由 `UnderwritingProjectionEventHandler`（处理组 `underwriting-query-group`）投影填充。
 
+> **持久化选型（写侧纯事件溯源）**：`Underwriting` 聚合为 Axon 事件溯源（`EventSourcingRepository` + `@EventSourcingHandler`），写侧状态只在事件流，**无 JPA 写表 / `UnderwritingEntity` / `UnderwritingJpaRepository`**（原为死码，已删除）。JPA 仅承载 CQRS 读模型（`query.view` / `query.repository`）。若后续新增**状态存储聚合**需保留的持久化对象，一律命名 `XxxxDO`（禁用 `Entity` 后缀），读模型投影保留 `*View`。选型细则见根 `docs/技术文档/持久化选型规范(JPA与EventSourcing).md`。
+
 ---
 
 ## 五、编码规约（本模块实例）
@@ -114,7 +116,7 @@
 
 - **命令/查询用 record**：已遵守，新增命令/查询同样用 record。
 - **构造器注入优先**：🔴 现状不一致——`UnderwritingCommandService`、`UnderwritingConditionQueryHandler` 仍用 `@Autowired` 构造器注入，应改为 `@RequiredArgsConstructor` + `final`（参考 `UnderwritingController`、`UnderwritingApiController` 的正确写法）。
-- **MapStruct 转换**：跨层转换走 Mapper，本模块已有 `UnderwritingMapper`(app)、`UnderwritingEntityMapper`/`UnderwritingInfrastructureMapper`(infra)、`UnderwritingQueryMapper`(query)、`UnderwritingWebMapper`(web)，新增字段需同步对应 Mapper。
+- **MapStruct 转换**：跨层转换走 Mapper，本模块 web 层 `UnderwritingWebMapper`（Request/DTO↔Command/VO）。写侧已纯事件溯源，原「聚合根↔`UnderwritingEntity`」的 infra Mapper（`UnderwritingEntityMapper` 等）已随写侧 JPA 一并删除。
 - **充血模型**：业务校验内聚到 `Underwriting` 聚合根，**禁止**把核保规则散落到 Service。注意 `UnderwritingDomainService.determineUnderwritingStatus` 与聚合根内的同名决策逻辑并存，新增规则前先消除重复（详见第七节）。
 - **面向接口/多态替代分支**：🔴 `UnderwritingDomainService` 用 `switch(riskLevel)` 决策，违背根规约「策略替代 switch 类型分支」，重构时应改策略模式。
 - **中文注释 + SLF4J 占位符**：投影器 `UnderwritingProjectionEventHandler` 是范本（`log.info("...{}", ...)`），新增日志照此办理。

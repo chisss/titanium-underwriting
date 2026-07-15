@@ -10,19 +10,18 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 /**
  * 核保服务启动类（组合根）
  * <p>
- * 同时扫描写侧持久化实体/仓储（infrastructure）与 CQRS 读侧读模型/仓储（query.view / query.repository）；
+ * 写侧为纯事件溯源（无 JPA 写表），JPA 仅扫描 CQRS 读侧读模型/仓储（query.view / query.repository）；
  * 开启定时任务以驱动读侧死信队列（DLQ）重试，保障核保读模型投影最终一致。
  * </p>
  */
 @SpringBootApplication
 @EnableScheduling
 @EnableFeignClients(basePackages = "com.titanium.underwriting.infrastructure.client")
+// 写侧收敛为纯事件溯源，JPA 仅承载 CQRS 读模型（query.view / query.repository）
 @EntityScan(basePackages = {
-        "com.titanium.underwriting.infrastructure.entity",
         "com.titanium.underwriting.query.view"
 })
 @EnableJpaRepositories(basePackages = {
-        "com.titanium.underwriting.infrastructure.repository.jpa",
         "com.titanium.underwriting.query.repository"
 })
 public class UnderwritingApplication {
