@@ -9,9 +9,13 @@ import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 
 /**
- * Underwriting Created Event
+ * 核保创建事件
+ * <p>
+ * {@code productCode} 为可选险种编码，供读模型投影存储，application 层据此查询产品核保配置。
+ * </p>
  */
 public record UnderwritingCreatedEvent(UnderwritingId underwritingId, PolicyId policyId, CustomerId customerId,
                                        UnderwritingAmount amount, UnderwritingEnum.UnderwritingType underwritingType,
-                                       LocalDateTime createdAt, String createdBy, String tenantId) {
+                                       LocalDateTime createdAt, String createdBy, String tenantId,
+                                       String productCode) {
 }

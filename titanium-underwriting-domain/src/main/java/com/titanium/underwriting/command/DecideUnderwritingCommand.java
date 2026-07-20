@@ -14,6 +14,9 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * </p>
  * <p>
  * {@code auditType} 指定核保方式（自动/人工/混合），供后续审计追溯。
+ * {@code surchargeAcceptable} 来自产品核保配置（UW-4 因子配置化）：为 {@code false} 时，
+ * 即使风险评分在次标准体区间，聚合根也不产出加费（直接拒保或降级处理）；
+ * 为 {@code null} 时采用默认行为（允许加费，与原逻辑一致）。
  * </p>
  *
  * @author wei.sun
@@ -23,6 +26,7 @@ public record DecideUnderwritingCommand(
         @TargetAggregateIdentifier UnderwritingId underwritingId,
         UnderwritingEnum.AuditType auditType,
         String decidedBy,
-        String tenantId
+        String tenantId,
+        Boolean surchargeAcceptable
 ) {
 }

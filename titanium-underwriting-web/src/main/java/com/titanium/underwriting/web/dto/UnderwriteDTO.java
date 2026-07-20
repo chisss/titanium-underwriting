@@ -1,4 +1,4 @@
-package com.titanium.underwriting.web.request;
+package com.titanium.underwriting.web.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,12 +12,12 @@ import lombok.Data;
  * 执行核保请求（后台/端上 HTTP 入参）
  * <p>
  * 由 {@code UnderwritingController} 接收，经 {@code UnderwritingWebMapper} 翻译为领域命令
- * {@code UnderwriteCommand}。与对外远程契约 {@code api.request.UnderwriteRequest} 物理隔离。
+ * {@code UnderwriteCommand}。与对外远程契约 {@code api.request.UnderwriteDTO} 物理隔离。
  * </p>
  */
 @Schema(description = "执行核保请求")
 @Data
-public class UnderwriteRequest {
+public class UnderwriteDTO {
 
     @Schema(description = "核保ID")
     private String underwritingId;

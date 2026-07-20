@@ -12,11 +12,11 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.api.dto.UnderwritingDTO;
+import com.titanium.underwriting.api.response.UnderwritingResponse;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
-import com.titanium.underwriting.web.request.SubmitUnderwritingInputRequest;
+import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
 import com.titanium.underwriting.web.vo.UnderwritingVO;
 
 /**
@@ -54,7 +54,7 @@ class UnderwritingWebMapperTest {
     @Test
     @DisplayName("DTO → VO：同名字段映射，空入参返回 null")
     void testDtoToVO() {
-        UnderwritingDTO dto = new UnderwritingDTO();
+        UnderwritingResponse dto = new UnderwritingResponse();
         dto.setUnderwritingId("UW202401001");
         dto.setPolicyId("POL202401001");
 
@@ -62,14 +62,14 @@ class UnderwritingWebMapperTest {
 
         assertNotNull(vo);
         assertEquals("UW202401001", vo.getUnderwritingId());
-        assertNull(mapper.toVO((UnderwritingDTO) null));
+        assertNull(mapper.toVO((UnderwritingResponse) null));
     }
 
     @Test
     @DisplayName("仅填车辆风险时，其余三块为 null，使用性质 code 转枚举")
     void shouldAssembleOnlyVehicleSection() {
-        SubmitUnderwritingInputRequest request = new SubmitUnderwritingInputRequest();
-        SubmitUnderwritingInputRequest.VehicleRiskInput vehicle = new SubmitUnderwritingInputRequest.VehicleRiskInput();
+        SubmitUnderwritingInputDTO request = new SubmitUnderwritingInputDTO();
+        SubmitUnderwritingInputDTO.VehicleRiskInput vehicle = new SubmitUnderwritingInputDTO.VehicleRiskInput();
         vehicle.setVehicleAgeYears(3);
         vehicle.setUsageNature("FAMILY");
         vehicle.setHistoricalClaimCount(1);
@@ -89,9 +89,9 @@ class UnderwritingWebMapperTest {
     @Test
     @DisplayName("健康告知装配：身高体重正确传入值对象")
     void shouldAssembleHealthDeclaration() {
-        SubmitUnderwritingInputRequest request = new SubmitUnderwritingInputRequest();
-        SubmitUnderwritingInputRequest.HealthDeclarationInput health =
-                new SubmitUnderwritingInputRequest.HealthDeclarationInput();
+        SubmitUnderwritingInputDTO request = new SubmitUnderwritingInputDTO();
+        SubmitUnderwritingInputDTO.HealthDeclarationInput health =
+                new SubmitUnderwritingInputDTO.HealthDeclarationInput();
         health.setHeightCm(new BigDecimal("175"));
         health.setWeightKg(new BigDecimal("70"));
         health.setSmoking(false);

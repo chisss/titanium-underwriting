@@ -1,4 +1,4 @@
-package com.titanium.underwriting.web.request;
+package com.titanium.underwriting.web.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -17,7 +17,7 @@ import lombok.Data;
  */
 @Schema(description = "提交核保输入请求")
 @Data
-public class SubmitUnderwritingInputRequest {
+public class SubmitUnderwritingInputDTO {
 
     @Schema(description = "提交人")
     private String submittedBy;

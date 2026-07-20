@@ -1,4 +1,4 @@
-package com.titanium.underwriting.api.dto;
+package com.titanium.underwriting.api.response;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,7 +14,7 @@ import lombok.Data;
  */
 @Schema(description = "核保DTO")
 @Data
-public class UnderwritingDTO {
+public class UnderwritingResponse {
 
     // ========== 基础信息 ==========
     @Schema(description = "核保ID", example = "UW202401001")
@@ -66,6 +66,16 @@ public class UnderwritingDTO {
 
     @Schema(description = "加费原因")
     private String surchargeReason;
+
+    // ========== 结构化加费（UW-3：核保域 ExtraPremium 映射，供 policy 出单并入保费） ==========
+    @Schema(description = "加费类型（PERMANENT_RATIO/TEMPORARY_RATIO/FIXED_AMOUNT）")
+    private String extraPremiumType;
+
+    @Schema(description = "加费率（比例加费时用，如 0.30 表示加费30%）", example = "0.30")
+    private BigDecimal extraPremiumRatio;
+
+    @Schema(description = "固定加费额（固定额加费时用）", example = "500.00")
+    private BigDecimal extraPremiumFixedAmount;
 
     @Schema(description = "除外责任")
     private String exclusions;

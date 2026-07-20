@@ -33,3 +33,11 @@ CREATE TABLE IF NOT EXISTS t_underwriting_view (
     KEY idx_uw_view_audit_type (audit_type, tenant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='核保读模型表';
 --rollback DROP TABLE IF EXISTS t_underwriting_view;
+
+-- UW-3：结构化加费字段（核保域 ExtraPremium 投影，供 policy 出单读取并入保费）
+--changeset weisun:underwriting-view-2
+ALTER TABLE t_underwriting_view
+    ADD COLUMN extra_premium_type VARCHAR(50) COMMENT '加费类型(PERMANENT_RATIO/TEMPORARY_RATIO/FIXED_AMOUNT)',
+    ADD COLUMN extra_premium_ratio DECIMAL(10,4) COMMENT '加费率(比例加费时用,如0.30表示加费30%)',
+    ADD COLUMN extra_premium_fixed_amount DECIMAL(18,2) COMMENT '固定加费额(固定额加费时用)';
+--rollback ALTER TABLE t_underwriting_view DROP COLUMN extra_premium_type, DROP COLUMN extra_premium_ratio, DROP COLUMN extra_premium_fixed_amount;

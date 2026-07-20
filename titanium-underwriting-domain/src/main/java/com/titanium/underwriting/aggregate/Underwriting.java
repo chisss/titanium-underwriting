@@ -71,6 +71,8 @@ public class Underwriting extends BaseAggregate {
     private String                              reviewComments;
     private String                              createdBy;
     private String                              updatedBy;
+    /** 险种编码（UW-4：产品核保配置化，供 application 层按产品查询配置阈值） */
+    private String                              productCode;
 
     // Command Handlers
     @CommandHandler
@@ -81,7 +83,7 @@ public class Underwriting extends BaseAggregate {
         // Publish event
         AggregateLifecycle.apply(new UnderwritingCreatedEvent(command.underwritingId(), command.policyId(),
                 command.customerId(), command.amount(), command.underwritingType(), LocalDateTime.now(),
-                command.createdBy(), command.tenantId()));
+                command.createdBy(), command.tenantId(), command.productCode()));
     }
 
     @CommandHandler
@@ -146,7 +148,9 @@ public class Underwriting extends BaseAggregate {
         UnderwritingEnum.UnderwritingStatus oldStatus = this.status;
         UnderwritingEnum.UnderwritingStatus newStatus = mapConclusionToStatus(conclusion);
         // 次标准体修改条件承保：产出结构化加费明细，供 billing 计算实收保费
-        ExtraPremium derivedExtraPremium = deriveExtraPremium(conclusion, riskScore);
+        // surchargeAcceptable 来自产品核保配置（null 时默认允许加费，与存量行为一致）
+        boolean canSurcharge = command.surchargeAcceptable() == null || command.surchargeAcceptable();
+        ExtraPremium derivedExtraPremium = canSurcharge ? deriveExtraPremium(conclusion, riskScore) : null;
 
         AggregateLifecycle.apply(new UnderwritingDecidedEvent(command.underwritingId(), this.policyId,
                 assessedRiskLevel, conclusion,
@@ -246,6 +250,7 @@ public class Underwriting extends BaseAggregate {
         this.createdBy = event.createdBy();
         this.updateTime = event.createdAt();
         this.updatedBy = event.createdBy();
+        this.productCode = event.productCode();
     }
 
     @EventSourcingHandler

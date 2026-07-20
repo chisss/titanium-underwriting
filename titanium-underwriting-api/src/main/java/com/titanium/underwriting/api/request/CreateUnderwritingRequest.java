@@ -26,4 +26,6 @@ public class CreateUnderwritingRequest {
     private LocalDateTime requestDate;
     @Schema(description = "请求人")
     private String        requestBy;
+    @Schema(description = "险种编码(UW-4:供核保域按产品查配置)")
+    private String        productCode;
 }

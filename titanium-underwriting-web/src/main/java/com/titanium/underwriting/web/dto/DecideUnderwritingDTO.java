@@ -1,4 +1,4 @@
-package com.titanium.underwriting.web.request;
+package com.titanium.underwriting.web.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -13,7 +13,7 @@ import lombok.Data;
  */
 @Schema(description = "核保决策请求")
 @Data
-public class DecideUnderwritingRequest {
+public class DecideUnderwritingDTO {
 
     @Schema(description = "核保方式：AUTOMATIC(自动)/MANUAL(人工)/HYBRID(混合)", example = "AUTOMATIC")
     private String auditType;

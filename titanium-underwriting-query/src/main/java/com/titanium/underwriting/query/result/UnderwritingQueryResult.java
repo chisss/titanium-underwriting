@@ -56,6 +56,15 @@ public class UnderwritingQueryResult {
     /** 综合风险评分 */
     private Integer                             riskScore;
 
+    /** 加费类型（UW-3：结构化加费） */
+    private String                              extraPremiumType;
+
+    /** 加费率（比例加费时用） */
+    private BigDecimal                          extraPremiumRatio;
+
+    /** 固定加费额（固定额加费时用） */
+    private BigDecimal                          extraPremiumFixedAmount;
+
     /** 业务创建时间 */
     private LocalDateTime                       createdAt;
 

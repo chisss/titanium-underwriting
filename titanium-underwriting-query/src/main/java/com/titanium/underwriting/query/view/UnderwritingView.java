@@ -98,6 +98,18 @@ public class UnderwritingView extends BaseView {
     @Column(name = "risk_score")
     private Integer                             riskScore;
 
+    /** 加费类型（UW-3：结构化加费，次标准体修改条件承保时填充） */
+    @Column(name = "extra_premium_type", length = 50)
+    private String                              extraPremiumType;
+
+    /** 加费率（比例加费时用，如 0.30 表示加费30%） */
+    @Column(name = "extra_premium_ratio", precision = 10, scale = 4)
+    private BigDecimal                          extraPremiumRatio;
+
+    /** 固定加费额（固定额加费时用） */
+    @Column(name = "extra_premium_fixed_amount", precision = 18, scale = 2)
+    private BigDecimal                          extraPremiumFixedAmount;
+
     /** 业务创建人 */
     @Column(name = "created_by", length = 50)
     private String                              createdBy;

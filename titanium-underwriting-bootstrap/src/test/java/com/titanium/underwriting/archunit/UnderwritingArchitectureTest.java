@@ -49,4 +49,16 @@ class UnderwritingArchitectureTest extends AbstractArchitectureGuardTest {
     protected void apiInterfacesMustBeNamedByAggregate() {
         super.apiInterfacesMustBeNamedByAggregate();
     }
+
+    @Test
+    @Override
+    protected void apiLayerUsesRequestResponseNotDto() {
+        super.apiLayerUsesRequestResponseNotDto();
+    }
+
+    @Test
+    @Override
+    protected void webLayerUsesDtoVoNotRequest() {
+        super.webLayerUsesDtoVoNotRequest();
+    }
 }

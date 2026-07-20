@@ -7,7 +7,7 @@ import org.mapstruct.ReportingPolicy;
 
 import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.api.dto.UnderwritingDTO;
+import com.titanium.underwriting.api.response.UnderwritingResponse;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
@@ -15,6 +15,7 @@ import com.titanium.underwriting.command.UnderwriteCommand;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.valueobject.CustomerId;
+import com.titanium.underwriting.valueobject.FinancialAssessment;
 import com.titanium.underwriting.valueobject.HealthDeclaration;
 import com.titanium.underwriting.valueobject.OccupationInfo;
 import com.titanium.underwriting.valueobject.PhysicalExamResult;
@@ -23,10 +24,10 @@ import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
 import com.titanium.underwriting.valueobject.VehicleRiskInfo;
-import com.titanium.underwriting.web.request.CreateUnderwritingRequest;
-import com.titanium.underwriting.web.request.DecideUnderwritingRequest;
-import com.titanium.underwriting.web.request.SubmitUnderwritingInputRequest;
-import com.titanium.underwriting.web.request.UnderwriteRequest;
+import com.titanium.underwriting.web.dto.CreateUnderwritingDTO;
+import com.titanium.underwriting.web.dto.DecideUnderwritingDTO;
+import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
+import com.titanium.underwriting.web.dto.UnderwriteDTO;
 import com.titanium.underwriting.web.vo.UnderwritingVO;
 
 /**
@@ -34,7 +35,7 @@ import com.titanium.underwriting.web.vo.UnderwritingVO;
  * <p>
  * 边界输入到 CQRS 命令的转换枢纽：HTTP {@code Request}（Controller 用）与远程 {@code DTO}（Provider 用）
  * → 领域命令；读模型结果 {@code UnderwritingQueryResult} → 展示 {@code VO}（Controller 用）/ 对外
- * {@code UnderwritingDTO}（Provider 用）。application 门面入参即领域命令，本映射器在 web 层完成
+ * {@code UnderwritingResponse}（Provider 用）。application 门面入参即领域命令，本映射器在 web 层完成
  * Request/DTO → Command 的结构翻译与值对象装配（{@code BigDecimal}+币种 → {@link UnderwritingAmount}、
  * 险种输入 → {@link UnderwritingInput}）。因命令承载带校验的值对象、险种输入需分块判空，命令构造采用
  * default 方法手写装配，读模型→VO/DTO 的同名字段映射交由 MapStruct 生成。
@@ -54,28 +55,28 @@ public interface UnderwritingWebMapper {
     UnderwritingVO toVO(UnderwritingQueryResult result);
 
     /**
-     * 读模型结果 → 对外 DTO（Provider 用）
+     * 读模型结果 → 对外 Response（Provider 用）
      *
      * @param result 读侧查询结果
-     * @return 核保 DTO
+     * @return 核保 Response
      */
-    UnderwritingDTO toDTO(UnderwritingQueryResult result);
+    UnderwritingResponse toResponse(UnderwritingQueryResult result);
 
     /**
-     * DTO → VO（Provider 结果透传给人机终端时复用）
+     * Response → VO（Provider 结果透传给人机终端时复用）
      *
-     * @param dto 核保 DTO
+     * @param response 核保 Response
      * @return 核保 VO
      */
-    UnderwritingVO toVO(UnderwritingDTO dto);
+    UnderwritingVO toVO(UnderwritingResponse response);
 
     /**
-     * DTO 列表 → VO 列表
+     * Response 列表 → VO 列表
      *
-     * @param dtoList 核保 DTO 列表
+     * @param responseList 核保 Response 列表
      * @return 核保 VO 列表
      */
-    List<UnderwritingVO> toVOList(List<UnderwritingDTO> dtoList);
+    List<UnderwritingVO> toVOList(List<UnderwritingResponse> responseList);
 
     // ========== HTTP Request → 领域命令（Controller 用） ==========
 
@@ -86,12 +87,12 @@ public interface UnderwritingWebMapper {
      * @param tenantId 租户ID（请求头）
      * @return 创建核保命令
      */
-    default CreateUnderwritingCommand toCommand(CreateUnderwritingRequest request, String tenantId) {
+    default CreateUnderwritingCommand toCommand(CreateUnderwritingDTO request, String tenantId) {
         // 边界防腐：REST 入参币种 code(String) 转 CurrencyEnum，装配为带校验的金额值对象
         CurrencyEnum currency = CurrencyEnum.fromCode(request.getCurrency());
         return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
                 CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(request.getAmount(), currency),
-                request.getUnderwritingType(), request.getRequestBy(), tenantId);
+                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode());
     }
 
     /**
@@ -102,7 +103,7 @@ public interface UnderwritingWebMapper {
      * @param tenantId       租户ID（请求头）
      * @return 执行核保命令
      */
-    default UnderwriteCommand toCommand(String underwritingId, UnderwriteRequest request, String tenantId) {
+    default UnderwriteCommand toCommand(String underwritingId, UnderwriteDTO request, String tenantId) {
         return new UnderwriteCommand(new UnderwritingId(underwritingId), new UnderwritingAmount(request.getAmount()),
                 request.getReason(), request.getUnderwriteBy(), tenantId);
     }
@@ -115,7 +116,7 @@ public interface UnderwritingWebMapper {
      * @param tenantId       租户ID（请求头）
      * @return 提交核保输入命令
      */
-    default SubmitUnderwritingInputCommand toCommand(String underwritingId, SubmitUnderwritingInputRequest request,
+    default SubmitUnderwritingInputCommand toCommand(String underwritingId, SubmitUnderwritingInputDTO request,
                                                      String tenantId) {
         return new SubmitUnderwritingInputCommand(new UnderwritingId(underwritingId), toInput(request),
                 request.getSubmittedBy(), tenantId);
@@ -129,10 +130,11 @@ public interface UnderwritingWebMapper {
      * @param tenantId       租户ID（请求头）
      * @return 核保决策命令
      */
-    default DecideUnderwritingCommand toCommand(String underwritingId, DecideUnderwritingRequest request,
+    default DecideUnderwritingCommand toCommand(String underwritingId, DecideUnderwritingDTO request,
                                                 String tenantId) {
+        // surchargeAcceptable 由 application 层依产品核保配置填充（UW-4），web 侧置 null
         return new DecideUnderwritingCommand(new UnderwritingId(underwritingId), toAuditType(request.getAuditType()),
-                request.getDecidedBy(), tenantId);
+                request.getDecidedBy(), tenantId, null);
     }
 
     // ========== 远程 DTO → 领域命令（Provider 用） ==========
@@ -149,7 +151,7 @@ public interface UnderwritingWebMapper {
         CurrencyEnum currency = CurrencyEnum.fromCode(request.getCurrency());
         return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
                 CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(request.getAmount(), currency),
-                request.getUnderwritingType(), request.getRequestBy(), tenantId);
+                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode());
     }
 
     /**
@@ -167,6 +169,85 @@ public interface UnderwritingWebMapper {
                 request.getReason(), request.getUnderwriteBy(), tenantId);
     }
 
+    /**
+     * 远程提交核保输入请求 → 提交核保输入命令（Provider 用，富核保路径）
+     *
+     * @param underwritingId 核保ID（path）
+     * @param request        提交核保输入请求（api 契约）
+     * @param tenantId       租户ID（请求头）
+     * @return 提交核保输入命令
+     */
+    default SubmitUnderwritingInputCommand toCommand(String underwritingId,
+            com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest request, String tenantId) {
+        return new SubmitUnderwritingInputCommand(new UnderwritingId(underwritingId), toApiInput(request),
+                request.getSubmittedBy(), tenantId);
+    }
+
+    /**
+     * 远程核保决策请求 → 核保决策命令（Provider 用，富核保路径）
+     *
+     * @param underwritingId 核保ID（path）
+     * @param request        核保决策请求（api 契约）
+     * @param tenantId       租户ID（请求头）
+     * @return 核保决策命令
+     */
+    default DecideUnderwritingCommand toCommand(String underwritingId,
+            com.titanium.underwriting.api.request.DecideUnderwritingApiRequest request, String tenantId) {
+        // surchargeAcceptable 由 application 层依产品核保配置填充（UW-4），web 侧置 null
+        return new DecideUnderwritingCommand(new UnderwritingId(underwritingId), toAuditType(request.getAuditType()),
+                request.getDecidedBy(), tenantId, null);
+    }
+
+    /** 远程 api 输入请求 → 核保输入容器值对象（含财务评估，供富核保决策） */
+    default UnderwritingInput toApiInput(
+            com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest request) {
+        return UnderwritingInput.builder()
+                .healthDeclaration(toApiHealth(request.getHealthDeclaration()))
+                .physicalExamResult(toApiExam(request.getPhysicalExamResult()))
+                .occupationInfo(toApiOccupation(request.getOccupationInfo()))
+                .financialAssessment(toApiFinancial(request.getFinancialAssessment()))
+                .build();
+    }
+
+    /** api 健康告知 → 值对象 */
+    private HealthDeclaration toApiHealth(
+            com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest.HealthDeclarationInput input) {
+        if (input == null) {
+            return null;
+        }
+        return new HealthDeclaration(input.getMedicalHistory(), input.getFamilyHistory(), input.isSmoking(),
+                input.getHeightCm(), input.getWeightKg());
+    }
+
+    /** api 体检 → 值对象 */
+    private PhysicalExamResult toApiExam(
+            com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest.PhysicalExamInput input) {
+        if (input == null) {
+            return null;
+        }
+        return new PhysicalExamResult(input.getBmi(), input.getSystolicPressure(), input.getDiastolicPressure(),
+                input.getBloodGlucose(), input.getAbnormalItems());
+    }
+
+    /** api 职业 → 值对象 */
+    private OccupationInfo toApiOccupation(
+            com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest.OccupationInput input) {
+        if (input == null) {
+            return null;
+        }
+        return new OccupationInfo(input.getOccupationName(), input.getOccupationCategory(), input.getRiskFactor());
+    }
+
+    /** api 财务评估 → 值对象 */
+    private FinancialAssessment toApiFinancial(
+            com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest.FinancialAssessInput input) {
+        if (input == null) {
+            return null;
+        }
+        return new FinancialAssessment(input.getAnnualIncome(), input.getNetWorth(), input.getRequestedSumInsured(),
+                input.getIncomeSource());
+    }
+
     // ========== 险种输入装配（分块判空 + 值对象内聚校验） ==========
 
     /**
@@ -178,7 +259,7 @@ public interface UnderwritingWebMapper {
      * @param request 提交核保输入请求（web）
      * @return 核保输入容器值对象
      */
-    default UnderwritingInput toInput(SubmitUnderwritingInputRequest request) {
+    default UnderwritingInput toInput(SubmitUnderwritingInputDTO request) {
         return UnderwritingInput.builder().healthDeclaration(toHealthDeclaration(request.getHealthDeclaration()))
                 .physicalExamResult(toPhysicalExamResult(request.getPhysicalExamResult()))
                 .occupationInfo(toOccupationInfo(request.getOccupationInfo()))
@@ -199,7 +280,7 @@ public interface UnderwritingWebMapper {
     }
 
     /** 健康告知输入装配（空块跳过） */
-    private HealthDeclaration toHealthDeclaration(SubmitUnderwritingInputRequest.HealthDeclarationInput input) {
+    private HealthDeclaration toHealthDeclaration(SubmitUnderwritingInputDTO.HealthDeclarationInput input) {
         if (input == null) {
             return null;
         }
@@ -208,7 +289,7 @@ public interface UnderwritingWebMapper {
     }
 
     /** 体检报告输入装配（空块跳过） */
-    private PhysicalExamResult toPhysicalExamResult(SubmitUnderwritingInputRequest.PhysicalExamInput input) {
+    private PhysicalExamResult toPhysicalExamResult(SubmitUnderwritingInputDTO.PhysicalExamInput input) {
         if (input == null) {
             return null;
         }
@@ -217,7 +298,7 @@ public interface UnderwritingWebMapper {
     }
 
     /** 职业信息输入装配（空块跳过） */
-    private OccupationInfo toOccupationInfo(SubmitUnderwritingInputRequest.OccupationInput input) {
+    private OccupationInfo toOccupationInfo(SubmitUnderwritingInputDTO.OccupationInput input) {
         if (input == null) {
             return null;
         }
@@ -225,7 +306,7 @@ public interface UnderwritingWebMapper {
     }
 
     /** 车辆风险输入装配（空块跳过，使用性质 code 转枚举） */
-    private VehicleRiskInfo toVehicleRiskInfo(SubmitUnderwritingInputRequest.VehicleRiskInput input) {
+    private VehicleRiskInfo toVehicleRiskInfo(SubmitUnderwritingInputDTO.VehicleRiskInput input) {
         if (input == null) {
             return null;
         }

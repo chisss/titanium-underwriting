@@ -21,7 +21,7 @@ import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.web.mapper.UnderwritingWebMapper;
-import com.titanium.underwriting.web.request.CreateUnderwritingRequest;
+import com.titanium.underwriting.web.dto.CreateUnderwritingDTO;
 import com.titanium.underwriting.web.vo.UnderwritingVO;
 
 /**
@@ -48,7 +48,7 @@ class UnderwritingControllerTest {
 
     private UnderwritingQueryResult     mockResult;
     private UnderwritingVO              mockVO;
-    private CreateUnderwritingRequest   mockRequest;
+    private CreateUnderwritingDTO   mockRequest;
 
     @BeforeEach
     void setUp() {
@@ -60,15 +60,15 @@ class UnderwritingControllerTest {
         mockVO.setUnderwritingId("UW202401001");
         mockVO.setPolicyId("POL202401001");
 
-        mockRequest = new CreateUnderwritingRequest();
+        mockRequest = new CreateUnderwritingDTO();
     }
 
     @Test
     void testCreateUnderwriting() {
         // Given
         CreateUnderwritingCommand command = new CreateUnderwritingCommand(new UnderwritingId("UW202401001"), null, null,
-                null, null, null, "tenant123");
-        when(underwritingWebMapper.toCommand(any(CreateUnderwritingRequest.class), anyString())).thenReturn(command);
+                null, null, null, "tenant123", null);
+        when(underwritingWebMapper.toCommand(any(CreateUnderwritingDTO.class), anyString())).thenReturn(command);
         when(underwritingCommandService.createUnderwriting(command)).thenReturn("UW202401001");
         when(underwritingQueryAppService.findUnderwritingById(any(UnderwritingId.class), anyString()))
                 .thenReturn(mockResult);

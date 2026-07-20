@@ -215,6 +215,9 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
         result.setAuditType(view.getAuditType());
         result.setUnderwriterId(view.getUnderwriterId());
         result.setRiskScore(view.getRiskScore());
+        result.setExtraPremiumType(view.getExtraPremiumType());
+        result.setExtraPremiumRatio(view.getExtraPremiumRatio());
+        result.setExtraPremiumFixedAmount(view.getExtraPremiumFixedAmount());
         result.setCreatedAt(view.getCreatedAt());
         result.setCreatedBy(view.getCreatedBy());
         result.setUpdatedAt(view.getUpdateTime());

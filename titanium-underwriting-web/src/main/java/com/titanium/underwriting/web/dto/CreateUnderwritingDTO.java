@@ -1,4 +1,4 @@
-package com.titanium.underwriting.web.request;
+package com.titanium.underwriting.web.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,12 +13,12 @@ import lombok.Data;
  * <p>
  * 面向人机终端的表现层请求体，由 {@code UnderwritingController} 接收，经
  * {@code UnderwritingWebMapper} 翻译为领域命令 {@code CreateUnderwritingCommand}。
- * 与对外远程契约 {@code api.request.CreateUnderwritingRequest} 物理隔离，互不耦合。
+ * 与对外远程契约 {@code api.request.CreateUnderwritingDTO} 物理隔离，互不耦合。
  * </p>
  */
 @Schema(description = "创建核保请求")
 @Data
-public class CreateUnderwritingRequest {
+public class CreateUnderwritingDTO {
 
     @Schema(description = "保单ID")
     private String policyId;
@@ -40,4 +40,7 @@ public class CreateUnderwritingRequest {
 
     @Schema(description = "请求人")
     private String requestBy;
+
+    @Schema(description = "险种编码(UW-4:供核保域按产品查配置)")
+    private String productCode;
 }

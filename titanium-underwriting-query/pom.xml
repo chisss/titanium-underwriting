@@ -54,6 +54,12 @@
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
+        <!-- MapStruct（读模型投影 事件→View 字段映射；processor 由 titanium-parent 编译器插件统一提供） -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

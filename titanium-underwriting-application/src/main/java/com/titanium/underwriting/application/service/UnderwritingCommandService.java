@@ -9,8 +9,11 @@ import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
+import com.titanium.underwriting.port.ProductUnderwritingConfigPort;
+import com.titanium.underwriting.port.ProductUnderwritingConfigPort.ProductUnderwritingConfig;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 核保命令服务（写侧应用入口门面）
@@ -21,12 +24,14 @@ import lombok.RequiredArgsConstructor;
  * （读侧对外表示由 web 层完成），彻底切断对 api 层的编译期依赖（项目规约 3.4.8 ①）。
  * </p>
  */
+@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class UnderwritingCommandService {
 
-    private final CommandGateway commandGateway;
+    private final CommandGateway                 commandGateway;
+    private final ProductUnderwritingConfigPort  productUnderwritingConfigPort;
 
     /**
      * 创建核保
@@ -69,12 +74,34 @@ public class UnderwritingCommandService {
      * 触发核保决策
      * <p>
      * 基于已提交的结构化输入与核保金额，由核保聚合根内聚决策产出结论
-     * （ACCEPT/MODIFY/REJECT/POSTPONE）与风险等级。
+     * （ACCEPT/MODIFY/REJECT/POSTPONE）与风险等级。若命令未携带 {@code surchargeAcceptable}，
+     * 按默认配置（允许加费）决策。
      * </p>
      *
      * @param command 核保决策命令
      */
     public void decide(DecideUnderwritingCommand command) {
         commandGateway.sendAndWait(command);
+    }
+
+    /**
+     * 触发核保决策（UW-4：产品核保配置化）
+     * <p>
+     * application 编排：先经 {@link ProductUnderwritingConfigPort} 按险种编码读取产品核保配置
+     * （是否接受加费等），据此充实决策命令的 {@code surchargeAcceptable}，再派发给聚合根决策。
+     * 配置计算职责在 product 域配置、underwriting 域决策——用配置替代聚合内硬编码加费策略。
+     * {@code productCode} 为空时走默认配置（允许加费）。
+     * </p>
+     *
+     * @param command     核保决策命令（web 层构造，surchargeAcceptable 待充实）
+     * @param productCode 险种编码（可为空）
+     */
+    public void decide(DecideUnderwritingCommand command, String productCode) {
+        ProductUnderwritingConfig config = productUnderwritingConfigPort.fetchConfig(productCode, command.tenantId());
+        log.info("[核保决策] 应用产品核保配置: productCode={}, surchargeAcceptable={}", productCode,
+                config.surchargeAcceptable());
+        DecideUnderwritingCommand enriched = new DecideUnderwritingCommand(command.underwritingId(),
+                command.auditType(), command.decidedBy(), command.tenantId(), config.surchargeAcceptable());
+        commandGateway.sendAndWait(enriched);
     }
 }

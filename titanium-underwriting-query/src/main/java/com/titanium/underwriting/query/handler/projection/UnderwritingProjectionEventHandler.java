@@ -8,12 +8,15 @@ import org.axonframework.eventhandling.EventHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.titanium.common.jpa.BasePersistable;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
+import com.titanium.underwriting.query.mapper.UnderwritingViewMapper;
 import com.titanium.underwriting.query.repository.UnderwritingViewRepository;
 import com.titanium.underwriting.query.view.UnderwritingView;
+import com.titanium.underwriting.valueobject.ExtraPremium;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 public class UnderwritingProjectionEventHandler {
 
     private final UnderwritingViewRepository underwritingViewRepository;
+    private final UnderwritingViewMapper     underwritingViewMapper;
 
     /**
      * 投影核保创建事件：新建读模型记录，初始状态为待核保
@@ -45,24 +49,10 @@ public class UnderwritingProjectionEventHandler {
         log.info("[读模型投影] 核保创建: underwritingId={}, tenantId={}", underwritingId, event.tenantId());
 
         UnderwritingView view = underwritingViewRepository.findById(underwritingId).orElseGet(UnderwritingView::new);
-        LocalDateTime now = LocalDateTime.now();
 
-        view.setUnderwritingId(underwritingId);
-        view.setPolicyId(event.policyId().value());
-        view.setCustomerId(event.customerId().value());
-        if (event.amount() != null) {
-            view.setAmount(event.amount().amount());
-        }
-        view.setUnderwritingType(event.underwritingType());
-        view.setStatus(UnderwritingEnum.UnderwritingStatus.PENDING);
-        view.setCreatedAt(event.createdAt());
-        view.setCreatedBy(event.createdBy());
-        view.setUpdatedBy(event.createdBy());
-        view.setTenantId(event.tenantId());
-        if (view.getCreateTime() == null) {
-            view.setCreateTime(now);
-        }
-        view.setUpdateTime(now);
+        // 事件字段 → 读模型的结构映射收敛到 MapStruct（值对象拆包、初始状态 PENDING），消除逐字段 set
+        underwritingViewMapper.applyCreated(view, event);
+        stampAuditTime(view);
 
         underwritingViewRepository.save(view);
     }
@@ -106,6 +96,13 @@ public class UnderwritingProjectionEventHandler {
             view.setRiskScore(event.riskScore());
             view.setStatus(event.newStatus());
             view.setUpdatedBy(event.decidedBy());
+            // UW-3：结构化加费投影到读模型，供 policy 出单经 DTO 读取并入保费
+            ExtraPremium extraPremium = event.extraPremium();
+            if (extraPremium != null) {
+                view.setExtraPremiumType(extraPremium.type() != null ? extraPremium.type().getCode() : null);
+                view.setExtraPremiumRatio(extraPremium.ratio());
+                view.setExtraPremiumFixedAmount(extraPremium.fixedAmount());
+            }
         });
     }
 
@@ -118,5 +115,20 @@ public class UnderwritingProjectionEventHandler {
             view.setUpdateTime(LocalDateTime.now());
             underwritingViewRepository.save(view);
         }, () -> log.warn("[读模型投影] {} 失败：未找到读模型记录 underwritingId={}（可能事件乱序，将由DLQ重试）", action, underwritingId));
+    }
+
+    /**
+     * 统一填充读模型审计时间戳：createTime 仅首次创建时写入、updateTime 每次投影刷新。
+     * <p>
+     * 该逻辑含 {@code now()} 运行时副作用与"仅首次设置"语义，属投影处理器职责，不下沉 MapStruct 映射器。
+     * {@code UnderwritingView} 继承 {@code BasePersistable}，以基类承接与账单域投影一致。
+     * </p>
+     */
+    private void stampAuditTime(BasePersistable view) {
+        LocalDateTime now = LocalDateTime.now();
+        if (view.getCreateTime() == null) {
+            view.setCreateTime(now);
+        }
+        view.setUpdateTime(now);
     }
 }
