@@ -19,9 +19,7 @@ spring:
         physical-strategy: com.titanium.common.jpa.AxonTablePrefixPhysicalNamingStrategy
       ddl-auto: none  # 强制关闭,交由 liquibase 管理
     show-sql: true      # Show SQL statements in logs
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQL5InnoDBDialect  # MySQL dialect for Hibernate
+    # 注: Hibernate 7 已移除 MySQL5InnoDBDialect，方言由 JDBC 连接自动探测，无需显式指定
 
   # Liquibase 数据库版本管理
   liquibase:
@@ -57,11 +55,13 @@ server:
 
 # Axon Framework configuration for CQRS and event sourcing
 axon:
+  serializer:
+    general: jackson
   eventhandling:
     processors:
-      underwritingEvents:
-        source: kafkaMessageSource  # Event source for underwriting events
-      # CQRS 读侧投影处理组（与写侧隔离）；开启 DLQ 保障读模型投影最终一致
+      # CQRS 读侧投影处理组（与写侧隔离）；开启 DLQ 保障读模型投影最终一致。
+      # 注: 原 underwritingEvents 处理组引用了不存在的 kafkaMessageSource bean（无 axon-kafka 扩展），
+      # 且无对应 @ProcessingGroup，属死配置已删除；写侧用本地 JPA 事件存储。
       underwriting-query-group:
         dlq:
           enabled: true
@@ -73,10 +73,6 @@ axon:
       # 跨域外发处理组：核保决策事件推送 Kafka（异步回流 policy）
       underwriting-kafka-group:
         mode: subscribing
-  eventstore:
-    kafka:
-      topic-prefix: underwriting    # Kafka topic prefix for event store
-      client-id: underwriting-service  # Kafka client ID
   commandhandling:
     pool-size: 10  # Number of threads for command handling
 

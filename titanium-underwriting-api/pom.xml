@@ -38,10 +38,11 @@
             <artifactId>fastjson2</artifactId>
         </dependency>
 
-        <!-- Feign Client-->
+        <!-- Feign Client（用完整 starter：core 仅含注解，缺 spring-cloud-context 会导致
+             @EnableFeignClients 运行时 NoClassDefFoundError: NamedContextFactory$Specification） -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-openfeign-core</artifactId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
         <!-- Swagger Annotations -->
         <dependency>

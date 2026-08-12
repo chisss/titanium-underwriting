@@ -7,8 +7,8 @@ import org.springframework.stereotype.Component;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 
+import com.titanium.metadata.response.ApiResponse;
 import com.titanium.product.api.ProductApi;
-import com.titanium.product.api.response.ApiResponse;
 import com.titanium.underwriting.port.ProductUnderwritingConfigPort;
 
 import lombok.RequiredArgsConstructor;

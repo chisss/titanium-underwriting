@@ -18,9 +18,23 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- 组合根须显式依赖 infrastructure，否则 driven adapter（如 ProductUnderwritingConfigAdapter）
+             不进 fat jar、不被组件扫描，运行时报 ProductUnderwritingConfigPort 无 bean -->
+        <dependency>
+            <groupId>com.titanium</groupId>
+            <artifactId>titanium-underwriting-infrastructure</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Liquibase：数据库版本管理（DDL 由 changelog-master.xml 管理，含 Axon 事件存储表） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-liquibase</artifactId>
         </dependency>
 
         <dependency>

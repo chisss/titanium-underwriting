@@ -11,17 +11,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.query.query.FindPendingUnderwritingTasksQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingByIdQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingByPolicyIdQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingHistoryByCustomerQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingStatisticsQuery;
-import com.titanium.underwriting.query.query.FindUnderwritingsByMultipleConditionsQuery;
-import com.titanium.underwriting.query.query.FindUnderwritingsByRiskLevelQuery;
-import com.titanium.underwriting.query.query.FindUnderwritingsByStatusQuery;
-import com.titanium.underwriting.query.query.FindUnderwritingsByUnderwriterQuery;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.query.result.UnderwritingStatisticsResult;
+import com.titanium.underwriting.query.service.UnderwritingQueryService;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -38,9 +34,12 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
 public class UnderwritingQueryAppService {
 
     private final QueryGateway queryGateway;
+    private final UnderwritingQueryService underwritingQueryService;
 
-    public UnderwritingQueryAppService(QueryGateway queryGateway) {
+    public UnderwritingQueryAppService(QueryGateway queryGateway,
+                                       UnderwritingQueryService underwritingQueryService) {
         this.queryGateway = queryGateway;
+        this.underwritingQueryService = underwritingQueryService;
     }
 
     /**
@@ -68,10 +67,8 @@ public class UnderwritingQueryAppService {
      */
     public Page<UnderwritingQueryResult> findUnderwritingsByStatus(UnderwritingEnum.UnderwritingStatus status,
                                                                    Pageable pageable, String tenantId) {
-        return queryGateway
-                .query(new FindUnderwritingsByStatusQuery(status, pageable, tenantId),
-                        ResponseTypes.instanceOf(Page.class))
-                .join();
+        // 分页查询直调读侧服务，绕过 Axon 查询总线（InstanceResponseType 无法匹配 Page 返回）
+        return underwritingQueryService.findByStatus(status, tenantId, pageable);
     }
 
     /**
@@ -87,10 +84,8 @@ public class UnderwritingQueryAppService {
      */
     public Page<UnderwritingQueryResult> findUnderwritingsByRiskLevel(UnderwritingEnum.RiskLevel riskLevel,
                                                                       Pageable pageable, String tenantId) {
-        return queryGateway
-                .query(new FindUnderwritingsByRiskLevelQuery(riskLevel, pageable, tenantId),
-                        ResponseTypes.instanceOf(Page.class))
-                .join();
+        // 分页查询直调读侧服务，绕过 Axon 查询总线（InstanceResponseType 无法匹配 Page 返回）
+        return underwritingQueryService.findByRiskLevel(riskLevel, tenantId, pageable);
     }
 
     /**
@@ -99,10 +94,9 @@ public class UnderwritingQueryAppService {
     public Page<UnderwritingQueryResult> findUnderwritingsByUnderwriter(String underwriterId, LocalDateTime startTime,
                                                                         LocalDateTime endTime, Pageable pageable,
                                                                         String tenantId) {
-        return queryGateway
-                .query(new FindUnderwritingsByUnderwriterQuery(underwriterId, startTime, endTime, pageable, tenantId),
-                        ResponseTypes.instanceOf(Page.class))
-                .join();
+        // 分页查询直调读侧服务，绕过 Axon 查询总线（InstanceResponseType 无法匹配 Page 返回）
+        return underwritingQueryService.findByUnderwriterAndTimeRange(underwriterId, startTime, endTime, tenantId,
+                pageable);
     }
 
     /**
@@ -112,8 +106,9 @@ public class UnderwritingQueryAppService {
             UnderwritingEnum.UnderwritingStatus status, UnderwritingEnum.RiskLevel riskLevel,
             UnderwritingEnum.AuditType auditType, String underwriterId, LocalDateTime startTime, LocalDateTime endTime,
             Pageable pageable, String tenantId) {
-        return queryGateway.query(new FindUnderwritingsByMultipleConditionsQuery(status, riskLevel, auditType,
-                underwriterId, startTime, endTime, pageable, tenantId), ResponseTypes.instanceOf(Page.class)).join();
+        // 分页查询直调读侧服务，绕过 Axon 查询总线（InstanceResponseType 无法匹配 Page 返回）
+        return underwritingQueryService.findByMultipleConditions(status, riskLevel, auditType, underwriterId, startTime,
+                endTime, tenantId, pageable);
     }
 
     /**
@@ -143,9 +138,7 @@ public class UnderwritingQueryAppService {
     public Page<UnderwritingQueryResult> findPendingUnderwritingTasks(String underwriterId,
                                                                       UnderwritingEnum.UnderwritingStatus status,
                                                                       Pageable pageable, String tenantId) {
-        return queryGateway
-                .query(new FindPendingUnderwritingTasksQuery(underwriterId, status, pageable, tenantId),
-                        ResponseTypes.instanceOf(Page.class))
-                .join();
+        // 分页查询直调读侧服务，绕过 Axon 查询总线（InstanceResponseType 无法匹配 Page 返回）
+        return underwritingQueryService.findPendingTasks(underwriterId, status, tenantId, pageable);
     }
 }

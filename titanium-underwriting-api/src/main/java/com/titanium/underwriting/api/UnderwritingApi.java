@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.DecideUnderwritingApiRequest;
@@ -21,8 +20,7 @@ import com.titanium.underwriting.api.response.UnderwritingResponse;
 /**
  * 核保服务Feign客户端
  */
-@FeignClient(name = "titanium-underwriting-service")
-@RequestMapping("/underwriting/api")
+@FeignClient(name = "titanium-underwriting-service", path = "/underwriting/api")
 public interface UnderwritingApi {
     /**
      * 创建核保

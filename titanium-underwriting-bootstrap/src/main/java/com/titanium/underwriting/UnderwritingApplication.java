@@ -16,7 +16,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @SpringBootApplication
 @EnableScheduling
-@EnableFeignClients(basePackages = "com.titanium.underwriting.infrastructure.client")
+@EnableFeignClients(basePackages = { "com.titanium.underwriting.infrastructure.client",
+        "com.titanium.product.api" })
 // 写侧收敛为纯事件溯源，JPA 仅承载 CQRS 读模型（query.view / query.repository）
 @EntityScan(basePackages = {
         "com.titanium.underwriting.query.view"

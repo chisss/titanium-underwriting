@@ -18,9 +18,11 @@ public class UnderwritingQueryCacheConfig {
 
     /**
      * 开发环境使用内存缓存
+     * 注: 含 "default" profile——未显式激活任何 profile 时(如 Docker 默认启动)兜底提供 CacheManager，
+     * 避免 @EnableCaching 因无 CacheManager bean 启动失败
      */
     @Bean
-    @Profile({"dev", "test"})
+    @Profile({"dev", "test", "default"})
     public CacheManager devCacheManager() {
         ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager();
 
