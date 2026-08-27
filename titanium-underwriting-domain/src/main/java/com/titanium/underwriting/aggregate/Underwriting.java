@@ -2,20 +2,28 @@ package com.titanium.underwriting.aggregate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.eventsourcing.EventSourcingHandler;
+import org.axonframework.modelling.command.AggregateCreationPolicy;
 import org.axonframework.modelling.command.AggregateIdentifier;
 import org.axonframework.modelling.command.AggregateLifecycle;
+import org.axonframework.modelling.command.CreationPolicy;
 import org.axonframework.spring.stereotype.Aggregate;
 
 import com.titanium.common.domain.BaseAggregate;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
+import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
@@ -24,6 +32,8 @@ import com.titanium.underwriting.exception.UnderwritingStatusException;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.ExtraPremium;
+import com.titanium.underwriting.valueobject.MaintenanceRiskFieldChange;
+import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -52,6 +62,10 @@ public class Underwriting extends BaseAggregate {
     /** 每 1 分风险评分折算的加费率（超出基准部分，如 0.02 表示每分加费 2%） */
     private static final double EXTRA_PREMIUM_RATE_PER_SCORE = 0.02d;
 
+    /** 保全核保规则与模型版本随结论冻结，升级必须新增版本而非覆盖历史。 */
+    private static final String MAINTENANCE_RULE_VERSION = "maintenance-underwriting-rules/1.1.0";
+    private static final String MAINTENANCE_MODEL_VERSION = "deterministic-change-classifier/1.1.0";
+
     @AggregateIdentifier
     private UnderwritingId                      underwritingId;
     private PolicyId                            policyId;
@@ -73,6 +87,17 @@ public class Underwriting extends BaseAggregate {
     private String                              updatedBy;
     /** 险种编码（UW-4：产品核保配置化，供 application 层按产品查询配置阈值） */
     private String                              productCode;
+    private String                              maintenanceId;
+    private Long                                maintenancePolicyBaselineVersion;
+    private String                              maintenanceItemCode;
+    private String                              maintenanceIdempotencyKey;
+    private String                              maintenancePayloadHash;
+    private MaintenanceUnderwritingConclusion   maintenanceConclusion;
+    private List<String>                        maintenanceAdditionalConditions;
+    private String                              maintenanceSummary;
+    private LocalDateTime                       maintenanceCompletedAt;
+    private LocalDateTime                       maintenanceAssessedAt;
+    private String                              maintenanceAssessedBy;
 
     // Command Handlers
     @CommandHandler
@@ -86,8 +111,35 @@ public class Underwriting extends BaseAggregate {
                 command.createdBy(), command.tenantId(), command.productCode()));
     }
 
+    /** 保全核保使用独立输入模型，并以确定性聚合标识保证远程重试幂等。 */
     @CommandHandler
-    public void handle(UnderwriteCommand command) {
+    @CreationPolicy(AggregateCreationPolicy.CREATE_IF_MISSING)
+    public MaintenanceUnderwritingAssessedEvent handle(AssessMaintenanceUnderwritingCommand command) {
+        validateMaintenanceCommand(command);
+        if (this.underwritingId != null) {
+            if (!Objects.equals(this.maintenancePayloadHash, command.payloadHash())
+                    || !Objects.equals(this.maintenanceIdempotencyKey, command.idempotencyKey())) {
+                throw new UnderwritingValidationException(
+                        "AssessMaintenanceUnderwritingCommand", "idempotencyKey", "同一幂等键不能提交不同载荷");
+            }
+            return currentMaintenanceAssessment();
+        }
+
+        MaintenanceAssessment assessment = assessMaintenanceRisk(command);
+        LocalDateTime assessedAt = LocalDateTime.now();
+        LocalDateTime completedAt = assessment.conclusion().completed() ? assessedAt : null;
+        MaintenanceUnderwritingAssessedEvent event = new MaintenanceUnderwritingAssessedEvent(
+                command.underwritingId(), command.tenantId(), command.maintenanceId(), command.policyId(),
+                command.policyBaselineVersion(), command.itemCode(), command.idempotencyKey(), command.payloadHash(),
+                MAINTENANCE_RULE_VERSION, MAINTENANCE_MODEL_VERSION, assessment.conclusion(),
+                assessment.additionalConditions(), assessment.summary(), completedAt, assessedAt,
+                command.requestedBy());
+        AggregateLifecycle.apply(event);
+        return event;
+    }
+
+    @CommandHandler
+    public UnderwritingStatusChangedEvent handle(UnderwriteCommand command) {
         // Validate command
         validateUnderwriteCommand(command);
 
@@ -96,8 +148,10 @@ public class Underwriting extends BaseAggregate {
         UnderwritingEnum.UnderwritingStatus oldStatus = this.status;
 
         // Publish status changed event
-        AggregateLifecycle.apply(new UnderwritingStatusChangedEvent(command.underwritingId(), oldStatus, newStatus,
-                command.reason(), LocalDateTime.now(), command.processedBy(), command.tenantId()));
+        UnderwritingStatusChangedEvent event = new UnderwritingStatusChangedEvent(command.underwritingId(), oldStatus,
+                newStatus, command.reason(), LocalDateTime.now(), command.processedBy(), command.tenantId());
+        AggregateLifecycle.apply(event);
+        return event;
     }
 
     private UnderwritingEnum.UnderwritingStatus determineUnderwritingStatus(UnderwriteCommand command) {
@@ -121,11 +175,13 @@ public class Underwriting extends BaseAggregate {
      * </p>
      */
     @CommandHandler
-    public void handle(SubmitUnderwritingInputCommand command) {
+    public UnderwritingInputSubmittedEvent handle(SubmitUnderwritingInputCommand command) {
         validateSubmitInputCommand(command);
 
-        AggregateLifecycle.apply(new UnderwritingInputSubmittedEvent(command.underwritingId(),
-                command.underwritingInput(), LocalDateTime.now(), command.submittedBy(), command.tenantId()));
+        UnderwritingInputSubmittedEvent event = new UnderwritingInputSubmittedEvent(command.underwritingId(),
+                command.underwritingInput(), LocalDateTime.now(), command.submittedBy(), command.tenantId());
+        AggregateLifecycle.apply(event);
+        return event;
     }
 
     /**
@@ -136,7 +192,7 @@ public class Underwriting extends BaseAggregate {
      * </p>
      */
     @CommandHandler
-    public void handle(DecideUnderwritingCommand command) {
+    public UnderwritingDecidedEvent handle(DecideUnderwritingCommand command) {
         validateDecideCommand(command);
 
         // 基于险种专属输入评估风险等级（充血模型）
@@ -152,10 +208,12 @@ public class Underwriting extends BaseAggregate {
         boolean canSurcharge = command.surchargeAcceptable() == null || command.surchargeAcceptable();
         ExtraPremium derivedExtraPremium = canSurcharge ? deriveExtraPremium(conclusion, riskScore) : null;
 
-        AggregateLifecycle.apply(new UnderwritingDecidedEvent(command.underwritingId(), this.policyId,
+        UnderwritingDecidedEvent event = new UnderwritingDecidedEvent(command.underwritingId(), this.policyId,
                 assessedRiskLevel, conclusion,
                 command.auditType(), oldStatus, newStatus, riskScore, derivedExtraPremium, LocalDateTime.now(),
-                command.decidedBy(), command.tenantId()));
+                command.decidedBy(), command.tenantId());
+        AggregateLifecycle.apply(event);
+        return event;
     }
 
     /**
@@ -283,6 +341,129 @@ public class Underwriting extends BaseAggregate {
         this.updatedBy = event.decidedBy();
     }
 
+    @EventSourcingHandler
+    public void on(MaintenanceUnderwritingAssessedEvent event) {
+        this.underwritingId = event.underwritingId();
+        this.tenantId = event.tenantId();
+        this.policyId = PolicyId.of(event.policyId());
+        this.underwritingType = UnderwritingEnum.UnderwritingType.ENDORSEMENT;
+        this.status = mapMaintenanceStatus(event.conclusion());
+        this.maintenanceId = event.maintenanceId();
+        this.maintenancePolicyBaselineVersion = event.policyBaselineVersion();
+        this.maintenanceItemCode = event.itemCode();
+        this.maintenanceIdempotencyKey = event.idempotencyKey();
+        this.maintenancePayloadHash = event.payloadHash();
+        this.maintenanceConclusion = event.conclusion();
+        this.maintenanceAdditionalConditions = event.additionalConditions();
+        this.maintenanceSummary = event.summary();
+        this.maintenanceCompletedAt = event.completedAt();
+        this.maintenanceAssessedAt = event.assessedAt();
+        this.maintenanceAssessedBy = event.assessedBy();
+        this.createTime = event.assessedAt();
+        this.updateTime = event.assessedAt();
+        this.createdBy = event.assessedBy();
+        this.updatedBy = event.assessedBy();
+    }
+
+    private void validateMaintenanceCommand(AssessMaintenanceUnderwritingCommand command) {
+        final String commandName = "AssessMaintenanceUnderwritingCommand";
+        if (command.underwritingId() == null) {
+            throw new UnderwritingValidationException(commandName, "underwritingId", "核保案件号不能为空");
+        }
+        requireText(commandName, "tenantId", command.tenantId());
+        requireText(commandName, "maintenanceId", command.maintenanceId());
+        requireText(commandName, "policyId", command.policyId());
+        requireText(commandName, "productId", command.productId());
+        requireText(commandName, "productVersion", command.productVersion());
+        requireText(commandName, "itemCode", command.itemCode());
+        requireText(commandName, "configurationVersion", command.configurationVersion());
+        requireText(commandName, "configurationContentHash", command.configurationContentHash());
+        requireText(commandName, "idempotencyKey", command.idempotencyKey());
+        requireText(commandName, "payloadHash", command.payloadHash());
+        requireText(commandName, "requestedBy", command.requestedBy());
+        if (command.policyBaselineVersion() == null || command.policyBaselineVersion() < 0) {
+            throw new UnderwritingValidationException(commandName, "policyBaselineVersion", "保单基准版本不合法");
+        }
+        if (!command.payloadHash().matches("[0-9a-f]{64}")
+                || !command.payloadHash().equals(command.calculatePayloadHash())) {
+            throw new UnderwritingValidationException(commandName, "payloadHash", "请求摘要与结构化载荷不一致");
+        }
+    }
+
+    private MaintenanceAssessment assessMaintenanceRisk(AssessMaintenanceUnderwritingCommand command) {
+        if (!command.configurationRequiresUnderwriting() && command.riskFieldChanges().isEmpty()) {
+            return new MaintenanceAssessment(
+                    MaintenanceUnderwritingConclusion.NOT_REQUIRED, List.of(), "配置与风险差异共同确认无需核保");
+        }
+        if (!command.configurationRequiresUnderwriting()) {
+            return new MaintenanceAssessment(
+                    MaintenanceUnderwritingConclusion.MANUAL_REVIEW, List.of(), "配置跳过核保但存在风险字段变化");
+        }
+        boolean rejected = false;
+        boolean manual = false;
+        List<String> conditions = new ArrayList<>();
+        for (MaintenanceRiskFieldChange change : command.riskFieldChanges()) {
+            String classification = change.changeTypeCode().toUpperCase(Locale.ROOT);
+            if (classification.startsWith("UW_REJECT")) {
+                rejected = true;
+            } else if (classification.startsWith("UW_MANUAL")) {
+                manual = true;
+            } else if (classification.startsWith("UW_CONDITIONAL")) {
+                conditions.add("REVIEW_FIELD:" + change.fieldCode());
+            } else if ("COVERAGE_AMOUNT_CHANGE".equals(classification)) {
+                conditions.add("REVIEW_FIELD:" + change.fieldCode());
+            } else if (!classification.startsWith("UW_AUTO_ACCEPT")) {
+                manual = true;
+            }
+        }
+        if (rejected) {
+            return new MaintenanceAssessment(
+                    MaintenanceUnderwritingConclusion.REJECTED, List.of(), "版本化规则判定风险不可接受");
+        }
+        if (manual || command.riskFieldChanges().isEmpty()) {
+            return new MaintenanceAssessment(
+                    MaintenanceUnderwritingConclusion.MANUAL_REVIEW, List.of(), "风险信息需要核保人员复核");
+        }
+        if (!conditions.isEmpty()) {
+            return new MaintenanceAssessment(
+                    MaintenanceUnderwritingConclusion.CONDITIONAL_APPROVED, conditions,
+                    "风险可在附加条件下接受");
+        }
+        return new MaintenanceAssessment(
+                MaintenanceUnderwritingConclusion.APPROVED, List.of(), "版本化规则判定风险可接受");
+    }
+
+    private MaintenanceUnderwritingAssessedEvent currentMaintenanceAssessment() {
+        return new MaintenanceUnderwritingAssessedEvent(
+                underwritingId, tenantId, maintenanceId, policyId.value(), maintenancePolicyBaselineVersion,
+                maintenanceItemCode, maintenanceIdempotencyKey, maintenancePayloadHash,
+                MAINTENANCE_RULE_VERSION, MAINTENANCE_MODEL_VERSION, maintenanceConclusion,
+                maintenanceAdditionalConditions, maintenanceSummary, maintenanceCompletedAt,
+                maintenanceAssessedAt, maintenanceAssessedBy);
+    }
+
+    private UnderwritingEnum.UnderwritingStatus mapMaintenanceStatus(
+            MaintenanceUnderwritingConclusion conclusion) {
+        return switch (conclusion) {
+            case NOT_REQUIRED, APPROVED -> UnderwritingEnum.UnderwritingStatus.APPROVED;
+            case CONDITIONAL_APPROVED -> UnderwritingEnum.UnderwritingStatus.RATED;
+            case MANUAL_REVIEW -> UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW;
+            case REJECTED -> UnderwritingEnum.UnderwritingStatus.DECLINED;
+        };
+    }
+
+    private void requireText(String commandName, String fieldName, String value) {
+        if (value == null || value.isBlank()) {
+            throw new UnderwritingValidationException(commandName, fieldName, "字段不能为空");
+        }
+    }
+
+    private record MaintenanceAssessment(
+            MaintenanceUnderwritingConclusion conclusion,
+            List<String> additionalConditions,
+            String summary) {
+    }
+
     // Business Logic
     private void validateCreateCommand(CreateUnderwritingCommand command) {
         final String commandName = "CreateUnderwritingCommand";
@@ -346,8 +527,8 @@ public class Underwriting extends BaseAggregate {
         if (!this.underwritingId.equals(command.underwritingId())) {
             throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不匹配");
         }
-        if (command.underwritingInput() == null || !command.underwritingInput().hasAnyInput()) {
-            throw new UnderwritingValidationException(commandName, "underwritingInput", "至少需要提交一项险种专属核保输入");
+        if (command.underwritingInput() == null) {
+            throw new UnderwritingValidationException(commandName, "underwritingInput", "核保输入容器不能为空");
         }
         if (command.submittedBy() == null || command.submittedBy().trim().isEmpty()) {
             throw new UnderwritingValidationException(commandName, "submittedBy", "提交人不能为空");
@@ -372,7 +553,7 @@ public class Underwriting extends BaseAggregate {
             throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
         }
         // 决策前必须已提交险种专属输入，否则违反核保业务规则
-        if (this.underwritingInput == null || !this.underwritingInput.hasAnyInput()) {
+        if (this.underwritingInput == null) {
             throw new UnderwritingStatusException(this.underwritingId.toString(),
                     this.status == null ? "UNKNOWN" : this.status.getCode(),
                     UnderwritingEnum.UnderwritingStatus.APPROVED.getCode(),

@@ -19,6 +19,9 @@ import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
+import com.titanium.underwriting.event.UnderwritingDecidedEvent;
+import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
+import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -48,9 +51,8 @@ public class UnderwritingApiProvider implements UnderwritingApi {
     public ResponseEntity<UnderwritingResponse> createUnderwriting(CreateUnderwritingRequest request, String tenantId) {
         // 协议转换：远程 Request → 领域命令，发命令后回查读模型组装对外 Response
         CreateUnderwritingCommand command = underwritingWebMapper.toCommand(request, tenantId);
-        String createdId = underwritingCommandService.createUnderwriting(command);
-        UnderwritingResponse response = queryResponse(createdId, tenantId);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        underwritingCommandService.createUnderwriting(command);
+        return new ResponseEntity<>(underwritingWebMapper.toResponse(command), HttpStatus.CREATED);
     }
 
     @Override
@@ -70,16 +72,16 @@ public class UnderwritingApiProvider implements UnderwritingApi {
     public ResponseEntity<UnderwritingResponse> underwrite(String underwritingId, UnderwriteRequest request,
                                                       String tenantId) {
         UnderwriteCommand command = underwritingWebMapper.toCommand(underwritingId, request, tenantId);
-        underwritingCommandService.underwrite(command);
-        return ResponseEntity.ok(queryResponse(underwritingId, tenantId));
+        UnderwritingStatusChangedEvent event = underwritingCommandService.underwrite(command);
+        return ResponseEntity.ok(underwritingWebMapper.toResponse(event));
     }
 
     @Override
     public ResponseEntity<UnderwritingResponse> submitInput(String underwritingId,
             SubmitUnderwritingInputApiRequest request, String tenantId) {
         SubmitUnderwritingInputCommand command = underwritingWebMapper.toCommand(underwritingId, request, tenantId);
-        underwritingCommandService.submitInput(command);
-        return ResponseEntity.ok(queryResponse(underwritingId, tenantId));
+        UnderwritingInputSubmittedEvent event = underwritingCommandService.submitInput(command);
+        return ResponseEntity.ok(underwritingWebMapper.toResponse(event));
     }
 
     @Override
@@ -87,8 +89,8 @@ public class UnderwritingApiProvider implements UnderwritingApi {
             String tenantId) {
         DecideUnderwritingCommand command = underwritingWebMapper.toCommand(underwritingId, request, tenantId);
         // UW-4：透传险种编码，application 层据此读取产品核保配置充实决策命令（加费许可等）
-        underwritingCommandService.decide(command, request.getProductCode());
-        return ResponseEntity.ok(queryResponse(underwritingId, tenantId));
+        UnderwritingDecidedEvent event = underwritingCommandService.decide(command, request.getProductCode());
+        return ResponseEntity.ok(underwritingWebMapper.toResponse(event));
     }
 
     @Override

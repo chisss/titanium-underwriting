@@ -36,7 +36,7 @@ public class ProductUnderwritingConfigAdapter implements ProductUnderwritingConf
             return ProductUnderwritingConfig.defaultConfig();
         }
         try {
-            ApiResponse<Object> response = productApi.getUnderwritingConfig(productCode, tenantId);
+            ApiResponse<Object> response = productApi.getUnderwritingConfigByCode(productCode, tenantId);
             if (response == null || !response.isSuccess() || response.getData() == null) {
                 log.warn("[核保配置] 产品核保配置不可用，使用默认配置: productCode={}", productCode);
                 return ProductUnderwritingConfig.defaultConfig();

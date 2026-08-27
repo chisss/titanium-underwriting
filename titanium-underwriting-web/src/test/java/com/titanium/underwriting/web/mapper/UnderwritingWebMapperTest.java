@@ -1,5 +1,6 @@
 package com.titanium.underwriting.web.mapper;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -11,10 +12,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
+import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
+import com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest;
 import com.titanium.underwriting.api.response.UnderwritingResponse;
+import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
+import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
+import com.titanium.underwriting.valueobject.PolicyId;
+import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
 import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
 import com.titanium.underwriting.web.vo.UnderwritingVO;
@@ -110,5 +118,60 @@ class UnderwritingWebMapperTest {
         assertEquals(UnderwritingEnum.AuditType.AUTOMATIC, mapper.toAuditType(""));
         assertEquals(UnderwritingEnum.AuditType.MANUAL, mapper.toAuditType("MANUAL"));
         assertEquals(UnderwritingEnum.AuditType.HYBRID, mapper.toAuditType("HYBRID"));
+    }
+
+    @Test
+    @DisplayName("跨域创建请求：空金额和空币种按标准核保合同归一为 0 CNY")
+    void shouldNormalizeMissingAmountAndCurrency() {
+        CreateUnderwritingRequest request = new CreateUnderwritingRequest();
+        request.setPolicyId("POL-001");
+        request.setCustomerId("CUS-001");
+        request.setUnderwritingType(UnderwritingEnum.UnderwritingType.NEW_BUSINESS);
+        request.setRequestBy("system");
+
+        CreateUnderwritingCommand command = mapper.toCommand(request, "TENANT-001");
+
+        assertEquals(new BigDecimal("0.00"), command.amount().amount());
+        assertEquals(CurrencyEnum.CNY, command.amount().currency());
+    }
+
+    @Test
+    @DisplayName("跨域风险输入：空请求与不完整块均不阻断标准体合同")
+    void shouldAcceptEmptyAndPartialRiskInput() {
+        SubmitUnderwritingInputApiRequest empty = new SubmitUnderwritingInputApiRequest();
+        assertNotNull(mapper.toApiInput(empty));
+        assertEquals(false, mapper.toApiInput(empty).hasAnyInput());
+
+        SubmitUnderwritingInputApiRequest partial = new SubmitUnderwritingInputApiRequest();
+        SubmitUnderwritingInputApiRequest.PhysicalExamInput exam =
+                new SubmitUnderwritingInputApiRequest.PhysicalExamInput();
+        exam.setBmi(new BigDecimal("22.0"));
+        partial.setPhysicalExamResult(exam);
+        SubmitUnderwritingInputApiRequest.OccupationInput occupation =
+                new SubmitUnderwritingInputApiRequest.OccupationInput();
+        occupation.setOccupationCategory(1);
+        partial.setOccupationInfo(occupation);
+        SubmitUnderwritingInputApiRequest.FinancialAssessInput financial =
+                new SubmitUnderwritingInputApiRequest.FinancialAssessInput();
+        financial.setRequestedSumInsured(new BigDecimal("1000"));
+        partial.setFinancialAssessment(financial);
+
+        assertDoesNotThrow(() -> mapper.toApiInput(partial));
+    }
+
+    @Test
+    @DisplayName("同步决策响应：标准体结论直接返回 ACCEPT")
+    void shouldMapStandardDecisionToSynchronousResponse() {
+        UnderwritingDecidedEvent event = new UnderwritingDecidedEvent(new UnderwritingId("UW-001"),
+                PolicyId.of("POL-001"), UnderwritingEnum.RiskLevel.STANDARD,
+                UnderwritingEnum.ConclusionType.ACCEPT, UnderwritingEnum.AuditType.AUTOMATIC,
+                UnderwritingEnum.UnderwritingStatus.PENDING, UnderwritingEnum.UnderwritingStatus.STANDARD,
+                0, null, LocalDateTime.now(), "system", "TENANT-001");
+
+        UnderwritingResponse response = mapper.toResponse(event);
+
+        assertEquals(UnderwritingEnum.RiskLevel.STANDARD, response.getRiskLevel());
+        assertEquals(UnderwritingEnum.ConclusionType.ACCEPT, response.getConclusionType());
+        assertEquals(UnderwritingEnum.UnderwritingStatus.STANDARD, response.getStatus());
     }
 }

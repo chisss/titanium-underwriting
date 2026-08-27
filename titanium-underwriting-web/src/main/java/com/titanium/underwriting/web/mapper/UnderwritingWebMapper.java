@@ -1,5 +1,6 @@
 package com.titanium.underwriting.web.mapper;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.mapstruct.Mapper;
@@ -13,6 +14,9 @@ import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
+import com.titanium.underwriting.event.UnderwritingDecidedEvent;
+import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
+import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.FinancialAssessment;
@@ -89,9 +93,9 @@ public interface UnderwritingWebMapper {
      */
     default CreateUnderwritingCommand toCommand(CreateUnderwritingDTO request, String tenantId) {
         // 边界防腐：REST 入参币种 code(String) 转 CurrencyEnum，装配为带校验的金额值对象
-        CurrencyEnum currency = CurrencyEnum.fromCode(request.getCurrency());
+        CurrencyEnum currency = resolveCurrency(request.getCurrency());
         return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
-                CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(request.getAmount(), currency),
+                CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(resolveAmount(request.getAmount()), currency),
                 request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode());
     }
 
@@ -148,9 +152,9 @@ public interface UnderwritingWebMapper {
      */
     default CreateUnderwritingCommand toCommand(
             com.titanium.underwriting.api.request.CreateUnderwritingRequest request, String tenantId) {
-        CurrencyEnum currency = CurrencyEnum.fromCode(request.getCurrency());
+        CurrencyEnum currency = resolveCurrency(request.getCurrency());
         return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
-                CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(request.getAmount(), currency),
+                CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(resolveAmount(request.getAmount()), currency),
                 request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode());
     }
 
@@ -222,7 +226,8 @@ public interface UnderwritingWebMapper {
     /** api 体检 → 值对象 */
     private PhysicalExamResult toApiExam(
             com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest.PhysicalExamInput input) {
-        if (input == null) {
+        if (input == null || input.getBmi() == null || input.getSystolicPressure() == null
+                || input.getDiastolicPressure() == null || input.getBloodGlucose() == null) {
             return null;
         }
         return new PhysicalExamResult(input.getBmi(), input.getSystolicPressure(), input.getDiastolicPressure(),
@@ -232,7 +237,8 @@ public interface UnderwritingWebMapper {
     /** api 职业 → 值对象 */
     private OccupationInfo toApiOccupation(
             com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest.OccupationInput input) {
-        if (input == null) {
+        if (input == null || input.getOccupationName() == null || input.getOccupationName().isBlank()
+                || input.getOccupationCategory() < 1 || input.getRiskFactor() == null) {
             return null;
         }
         return new OccupationInfo(input.getOccupationName(), input.getOccupationCategory(), input.getRiskFactor());
@@ -241,7 +247,8 @@ public interface UnderwritingWebMapper {
     /** api 财务评估 → 值对象 */
     private FinancialAssessment toApiFinancial(
             com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest.FinancialAssessInput input) {
-        if (input == null) {
+        if (input == null || input.getAnnualIncome() == null || input.getNetWorth() == null
+                || input.getRequestedSumInsured() == null) {
             return null;
         }
         return new FinancialAssessment(input.getAnnualIncome(), input.getNetWorth(), input.getRequestedSumInsured(),
@@ -277,6 +284,81 @@ public interface UnderwritingWebMapper {
             return UnderwritingEnum.AuditType.AUTOMATIC;
         }
         return UnderwritingEnum.AuditType.valueOf(auditTypeCode);
+    }
+
+    /** 空金额表示上游尚未形成标准保费，按零金额进入风险资料核保。 */
+    default BigDecimal resolveAmount(BigDecimal amount) {
+        return amount == null ? BigDecimal.ZERO : amount;
+    }
+
+    /** 空币种沿用跨域契约的人民币默认值。 */
+    default CurrencyEnum resolveCurrency(String currencyCode) {
+        if (currencyCode == null || currencyCode.isBlank()) {
+            return CurrencyEnum.CNY;
+        }
+        return CurrencyEnum.requireByCode(currencyCode);
+    }
+
+    /** 创建命令同步快照，不依赖异步读模型。 */
+    default UnderwritingResponse toResponse(CreateUnderwritingCommand command) {
+        UnderwritingResponse response = new UnderwritingResponse();
+        response.setUnderwritingId(command.underwritingId().value());
+        response.setPolicyId(command.policyId().value());
+        response.setCustomerId(command.customerId().value());
+        response.setAmount(command.amount().amount());
+        response.setUnderwritingType(command.underwritingType());
+        response.setStatus(UnderwritingEnum.UnderwritingStatus.PENDING);
+        response.setCreatedBy(command.createdBy());
+        response.setTenantId(command.tenantId());
+        return response;
+    }
+
+    /** 状态命令同步快照，不依赖异步读模型。 */
+    default UnderwritingResponse toResponse(UnderwritingStatusChangedEvent event) {
+        UnderwritingResponse response = new UnderwritingResponse();
+        response.setUnderwritingId(event.underwritingId().value());
+        response.setStatus(event.newStatus());
+        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED
+                || event.newStatus() == UnderwritingEnum.UnderwritingStatus.DECLINED) {
+            response.setRejectReason(event.reason());
+        } else {
+            response.setReviewComments(event.reason());
+        }
+        response.setUpdatedBy(event.changedBy());
+        response.setTenantId(event.tenantId());
+        return response;
+    }
+
+    /** 输入提交命令同步快照，不依赖异步读模型。 */
+    default UnderwritingResponse toResponse(UnderwritingInputSubmittedEvent event) {
+        UnderwritingResponse response = new UnderwritingResponse();
+        response.setUnderwritingId(event.underwritingId().value());
+        response.setStatus(UnderwritingEnum.UnderwritingStatus.PENDING);
+        response.setUpdatedBy(event.submittedBy());
+        response.setTenantId(event.tenantId());
+        return response;
+    }
+
+    /** 最终决策命令同步快照，为调用方提供权威核保结论。 */
+    default UnderwritingResponse toResponse(UnderwritingDecidedEvent event) {
+        UnderwritingResponse response = new UnderwritingResponse();
+        response.setUnderwritingId(event.underwritingId().value());
+        response.setPolicyId(event.policyId().value());
+        response.setRiskLevel(event.riskLevel());
+        response.setConclusionType(event.conclusionType());
+        response.setAuditType(event.auditType());
+        response.setStatus(event.newStatus());
+        response.setUpdatedBy(event.decidedBy());
+        response.setTenantId(event.tenantId());
+        if (event.extraPremium() != null) {
+            response.setExtraPremiumType(event.extraPremium().type() != null
+                    ? event.extraPremium().type().getCode()
+                    : null);
+            response.setExtraPremiumRatio(event.extraPremium().ratio());
+            response.setExtraPremiumFixedAmount(event.extraPremium().fixedAmount());
+            response.setSurchargeReason(event.extraPremium().reason());
+        }
+        return response;
     }
 
     /** 健康告知输入装配（空块跳过） */

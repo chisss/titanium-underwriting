@@ -22,6 +22,9 @@ import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
+import com.titanium.underwriting.event.UnderwritingDecidedEvent;
+import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
+import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.query.result.UnderwritingStatisticsResult;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -66,8 +69,9 @@ public class UnderwritingController {
     public ResponseEntity<UnderwritingVO> createUnderwriting(@RequestBody CreateUnderwritingDTO request,
                                                              @RequestHeader("X-Tenant-ID") String tenantId) {
         CreateUnderwritingCommand command = underwritingWebMapper.toCommand(request, tenantId);
-        String createdId = underwritingCommandService.createUnderwriting(command);
-        return new ResponseEntity<>(queryVO(createdId, tenantId), HttpStatus.CREATED);
+        underwritingCommandService.createUnderwriting(command);
+        return new ResponseEntity<>(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(command)),
+                HttpStatus.CREATED);
     }
 
     /**
@@ -96,8 +100,8 @@ public class UnderwritingController {
                                                      @RequestBody UnderwriteDTO request,
                                                      @RequestHeader("X-Tenant-ID") String tenantId) {
         UnderwriteCommand command = underwritingWebMapper.toCommand(underwritingId, request, tenantId);
-        underwritingCommandService.underwrite(command);
-        return ResponseEntity.ok(queryVO(underwritingId, tenantId));
+        UnderwritingStatusChangedEvent event = underwritingCommandService.underwrite(command);
+        return ResponseEntity.ok(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
     }
 
     /**
@@ -113,8 +117,8 @@ public class UnderwritingController {
                                                       @RequestBody SubmitUnderwritingInputDTO request,
                                                       @RequestHeader("X-Tenant-ID") String tenantId) {
         SubmitUnderwritingInputCommand command = underwritingWebMapper.toCommand(underwritingId, request, tenantId);
-        underwritingCommandService.submitInput(command);
-        return ResponseEntity.ok(queryVO(underwritingId, tenantId));
+        UnderwritingInputSubmittedEvent event = underwritingCommandService.submitInput(command);
+        return ResponseEntity.ok(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
     }
 
     /**
@@ -130,8 +134,8 @@ public class UnderwritingController {
                                                  @RequestBody DecideUnderwritingDTO request,
                                                  @RequestHeader("X-Tenant-ID") String tenantId) {
         DecideUnderwritingCommand command = underwritingWebMapper.toCommand(underwritingId, request, tenantId);
-        underwritingCommandService.decide(command);
-        return ResponseEntity.ok(queryVO(underwritingId, tenantId));
+        UnderwritingDecidedEvent event = underwritingCommandService.decide(command);
+        return ResponseEntity.ok(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
     }
 
     /**

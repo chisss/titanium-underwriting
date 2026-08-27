@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
  * 订阅核保域领域事件，将聚合根状态变更投影到读模型表 {@code t_underwriting_view}， 使查询侧拥有独立的物化视图，彻底摆脱「重建写侧聚合根来查询」的读写混用反模式。
  * </p>
  * <p>
- * <b>处理组</b>：{@code underwriting-query-group}，与写侧隔离。 <b>幂等</b>：创建事件 saveOrUpdate；状态/决策事件查存量再更新，缺失告警跳过（由 DLQ 重试），保证事件重放安全。
+ * <b>处理组</b>：{@code underwriting-query-group}，与写侧隔离。 <b>幂等</b>：创建事件 saveOrUpdate；状态/决策事件查存量再更新，缺失时抛错进入重试或 DLQ，保证事件不会静默丢失。
  * </p>
  */
 @Slf4j
@@ -107,14 +107,17 @@ public class UnderwritingProjectionEventHandler {
     }
 
     /**
-     * 通用更新模板：查存量→应用变更→刷新更新时间→保存；缺失时告警跳过保证幂等（由 DLQ 重试）
+     * 通用更新模板：查存量→应用变更→刷新更新时间→保存；缺失时抛错进入重试或 DLQ
      */
     private void applyUpdate(String underwritingId, String action, Consumer<UnderwritingView> mutator) {
         underwritingViewRepository.findById(underwritingId).ifPresentOrElse(view -> {
             mutator.accept(view);
             view.setUpdateTime(LocalDateTime.now());
             underwritingViewRepository.save(view);
-        }, () -> log.warn("[读模型投影] {} 失败：未找到读模型记录 underwritingId={}（可能事件乱序，将由DLQ重试）", action, underwritingId));
+        }, () -> {
+            throw new IllegalStateException("[读模型投影] " + action + " 失败：未找到读模型记录 underwritingId="
+                    + underwritingId);
+        });
     }
 
     /**

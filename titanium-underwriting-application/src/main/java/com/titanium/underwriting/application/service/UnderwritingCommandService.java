@@ -4,11 +4,16 @@ import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
+import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
+import com.titanium.underwriting.event.UnderwritingDecidedEvent;
+import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
+import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.port.ProductUnderwritingConfigPort;
 import com.titanium.underwriting.port.ProductUnderwritingConfigPort.ProductUnderwritingConfig;
 
@@ -40,6 +45,13 @@ public class UnderwritingCommandService {
      * @return 新建核保ID
      */
     public String createUnderwriting(CreateUnderwritingCommand command) {
+        commandGateway.sendAndWait(command);
+        return command.underwritingId().value();
+    }
+
+    /** 派发保全专用核保评估，返回聚合冻结的权威结论。 */
+    public MaintenanceUnderwritingAssessedEvent assessMaintenance(
+            AssessMaintenanceUnderwritingCommand command) {
         return commandGateway.sendAndWait(command);
     }
 
@@ -48,8 +60,8 @@ public class UnderwritingCommandService {
      *
      * @param command 执行核保命令
      */
-    public void underwrite(UnderwriteCommand command) {
-        commandGateway.sendAndWait(command);
+    public UnderwritingStatusChangedEvent underwrite(UnderwriteCommand command) {
+        return commandGateway.sendAndWait(command);
     }
 
     /**
@@ -66,8 +78,8 @@ public class UnderwritingCommandService {
      *
      * @param command 提交核保输入命令
      */
-    public void submitInput(SubmitUnderwritingInputCommand command) {
-        commandGateway.sendAndWait(command);
+    public UnderwritingInputSubmittedEvent submitInput(SubmitUnderwritingInputCommand command) {
+        return commandGateway.sendAndWait(command);
     }
 
     /**
@@ -80,8 +92,8 @@ public class UnderwritingCommandService {
      *
      * @param command 核保决策命令
      */
-    public void decide(DecideUnderwritingCommand command) {
-        commandGateway.sendAndWait(command);
+    public UnderwritingDecidedEvent decide(DecideUnderwritingCommand command) {
+        return commandGateway.sendAndWait(command);
     }
 
     /**
@@ -96,12 +108,12 @@ public class UnderwritingCommandService {
      * @param command     核保决策命令（web 层构造，surchargeAcceptable 待充实）
      * @param productCode 险种编码（可为空）
      */
-    public void decide(DecideUnderwritingCommand command, String productCode) {
+    public UnderwritingDecidedEvent decide(DecideUnderwritingCommand command, String productCode) {
         ProductUnderwritingConfig config = productUnderwritingConfigPort.fetchConfig(productCode, command.tenantId());
         log.info("[核保决策] 应用产品核保配置: productCode={}, surchargeAcceptable={}", productCode,
                 config.surchargeAcceptable());
         DecideUnderwritingCommand enriched = new DecideUnderwritingCommand(command.underwritingId(),
                 command.auditType(), command.decidedBy(), command.tenantId(), config.surchargeAcceptable());
-        commandGateway.sendAndWait(enriched);
+        return commandGateway.sendAndWait(enriched);
     }
 }
