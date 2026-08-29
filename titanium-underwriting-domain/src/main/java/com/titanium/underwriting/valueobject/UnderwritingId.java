@@ -3,13 +3,15 @@ package com.titanium.underwriting.valueobject;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
+import com.titanium.common.util.SnowflakeIdGenerator;
+
 /**
  * Underwriting ID Value Object
  */
 public record UnderwritingId(String value) {
 
     public static UnderwritingId generate() {
-        return new UnderwritingId(UUID.randomUUID().toString());
+        return new UnderwritingId(SnowflakeIdGenerator.generate());
     }
 
     public static UnderwritingId of(String value) {
