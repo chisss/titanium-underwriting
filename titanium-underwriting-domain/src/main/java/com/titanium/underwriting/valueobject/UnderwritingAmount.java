@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 import com.titanium.metadata.enums.CurrencyEnum;
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 
 /**
@@ -12,10 +13,10 @@ import com.titanium.underwriting.exception.UnderwritingValidationException;
 public record UnderwritingAmount(BigDecimal amount, CurrencyEnum currency) {
     public UnderwritingAmount(BigDecimal amount, CurrencyEnum currency) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new UnderwritingValidationException("UnderwritingAmount", "amount", "核保金额必须大于或等于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.UNDERWRITING_AMOUNT_NEGATIVE, "UnderwritingAmount", "amount");
         }
         if (currency == null) {
-            throw new UnderwritingValidationException("UnderwritingAmount", "currency", "币种不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.CURRENCY_REQUIRED, "UnderwritingAmount", "currency");
         }
         this.amount = amount.setScale(2, RoundingMode.HALF_UP);
         this.currency = currency;
@@ -36,7 +37,7 @@ public record UnderwritingAmount(BigDecimal amount, CurrencyEnum currency) {
     public UnderwritingAmount add(UnderwritingAmount other) {
         // 枚举用 == 比较币种是否一致
         if (this.currency != other.currency) {
-            throw new UnderwritingValidationException("UnderwritingAmount", "currency", "不能对不同币种的金额进行相加");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.CURRENCY_MISMATCH, "UnderwritingAmount", "currency");
         }
         return new UnderwritingAmount(this.amount.add(other.amount), this.currency);
     }

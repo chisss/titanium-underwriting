@@ -21,16 +21,23 @@ import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 
+import com.titanium.underwriting.common.constant.UnderwritingConstants;
+
 /**
  * Kafka配置类
  */
 @Configuration
 public class KafkaConfig {
-    @Value("${spring.kafka.bootstrap-servers}")
-    private String bootstrapServers;
 
-    @Value("${spring.kafka.consumer.group-id}")
-    private String consumerGroupId;
+    private final String bootstrapServers;
+    private final String consumerGroupId;
+
+    /** 构造注入 Kafka 配置项（构造器注入优先，禁用字段注入） */
+    public KafkaConfig(@Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
+                       @Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
+        this.bootstrapServers = bootstrapServers;
+        this.consumerGroupId = consumerGroupId;
+    }
 
     /**
      * 创建Kafka生产者配置
@@ -90,7 +97,7 @@ public class KafkaConfig {
      */
     @Bean
     public NewTopic underwritingCreatedTopic() {
-        return TopicBuilder.name("underwriting-created")
+        return TopicBuilder.name(UnderwritingConstants.TOPIC_UNDERWRITING_CREATED)
                 .partitions(3)
                 .replicas(2)
                 .build();
@@ -102,7 +109,7 @@ public class KafkaConfig {
      */
     @Bean
     public NewTopic underwritingStatusChangedTopic() {
-        return TopicBuilder.name("underwriting-status-changed")
+        return TopicBuilder.name(UnderwritingConstants.TOPIC_UNDERWRITING_STATUS_CHANGED)
                 .partitions(3)
                 .replicas(2)
                 .build();

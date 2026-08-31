@@ -1,5 +1,7 @@
 package com.titanium.underwriting.query.config;
 
+import java.util.Arrays;
+
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -27,7 +29,7 @@ public class UnderwritingQueryCacheConfig {
         ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager();
 
         // 配置缓存名称
-        cacheManager.setCacheNames(java.util.Arrays.asList(
+        cacheManager.setCacheNames(Arrays.asList(
             "underwriting:riskLevel",      // 风险等级查询缓存
             "underwriting:underwriter",    // 核保员查询缓存
             "underwriting:customerHistory", // 客户历史查询缓存
@@ -47,7 +49,7 @@ public class UnderwritingQueryCacheConfig {
         // 这里先使用内存缓存作为示例，实际生产环境需要配置RedisCacheManager
         ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager();
 
-        cacheManager.setCacheNames(java.util.Arrays.asList(
+        cacheManager.setCacheNames(Arrays.asList(
             "underwriting:riskLevel",
             "underwriting:underwriter",
             "underwriting:customerHistory",

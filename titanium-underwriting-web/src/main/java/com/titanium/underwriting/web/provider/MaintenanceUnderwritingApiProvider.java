@@ -9,9 +9,7 @@ import com.titanium.underwriting.api.request.AssessMaintenanceUnderwritingReques
 import com.titanium.underwriting.api.response.MaintenanceUnderwritingResponse;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
-import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
-import com.titanium.underwriting.valueobject.MaintenanceRiskFieldChange;
-import com.titanium.underwriting.valueobject.UnderwritingId;
+import com.titanium.underwriting.web.mapper.MaintenanceUnderwritingWebMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,40 +20,14 @@ import lombok.RequiredArgsConstructor;
 public class MaintenanceUnderwritingApiProvider implements MaintenanceUnderwritingApi {
 
     private final UnderwritingCommandService underwritingCommandService;
+    private final MaintenanceUnderwritingWebMapper maintenanceUnderwritingWebMapper;
 
     @Override
     public ResponseEntity<MaintenanceUnderwritingResponse> assess(
             AssessMaintenanceUnderwritingRequest request,
             String tenantId) {
-        AssessMaintenanceUnderwritingCommand command = new AssessMaintenanceUnderwritingCommand(
-                UnderwritingId.forMaintenance(tenantId, request.idempotencyKey()),
-                tenantId,
-                request.maintenanceId(),
-                request.policyId(),
-                request.policyBaselineVersion(),
-                request.productId(),
-                request.productVersion(),
-                request.planVersion(),
-                request.itemCode(),
-                request.configurationVersion(),
-                request.configurationContentHash(),
-                request.configurationRequiresUnderwriting(),
-                request.riskFieldChanges().stream()
-                        .map(change -> new MaintenanceRiskFieldChange(
-                                change.objectId(), change.fieldCode(), change.dataType(),
-                                change.beforeValue(), change.proposedValue(), change.changeTypeCode()))
-                        .toList(),
-                request.idempotencyKey(),
-                request.payloadHash(),
-                request.requestedBy());
-        return ResponseEntity.ok(toResponse(underwritingCommandService.assessMaintenance(command)));
-    }
-
-    private MaintenanceUnderwritingResponse toResponse(MaintenanceUnderwritingAssessedEvent event) {
-        return new MaintenanceUnderwritingResponse(
-                event.tenantId(), event.maintenanceId(), event.policyId(), event.policyBaselineVersion(),
-                event.itemCode(), event.underwritingId().value(), event.idempotencyKey(), event.payloadHash(),
-                event.ruleVersion(), event.modelVersion(), event.conclusion().name(),
-                event.additionalConditions(), event.summary(), event.completedAt());
+        AssessMaintenanceUnderwritingCommand command = maintenanceUnderwritingWebMapper.toCommand(request, tenantId);
+        return ResponseEntity.ok(
+                maintenanceUnderwritingWebMapper.toResponse(underwritingCommandService.assessMaintenance(command)));
     }
 }

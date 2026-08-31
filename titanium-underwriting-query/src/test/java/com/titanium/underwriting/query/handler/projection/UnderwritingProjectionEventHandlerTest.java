@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.common.exception.UnderwritingException;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.mapper.UnderwritingViewMapper;
 import com.titanium.underwriting.query.repository.UnderwritingViewRepository;
@@ -37,6 +38,6 @@ class UnderwritingProjectionEventHandlerTest {
                 "自动核保", LocalDateTime.now(), "system", "TENANT-001");
         when(repository.findById("UW-001")).thenReturn(Optional.empty());
 
-        assertThrows(IllegalStateException.class, () -> handler.on(event));
+        assertThrows(UnderwritingException.class, () -> handler.on(event));
     }
 }

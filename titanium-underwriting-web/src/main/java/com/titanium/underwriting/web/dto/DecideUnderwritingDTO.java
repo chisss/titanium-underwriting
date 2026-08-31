@@ -7,7 +7,7 @@ import lombok.Data;
  * 核保决策请求（后台/端上 HTTP 入参）
  * <p>
  * 触发基于已提交结构化输入的智能核保决策，产出核保结论（ACCEPT/MODIFY/REJECT/POSTPONE）与风险等级。
- * 由 {@code UnderwritingController} 接收，经 {@code UnderwritingWebMapper} 翻译为领域命令
+ * 由 {@code UnderwritingController} 接收，经 {@code UnderwritingWebAssembler} 翻译为领域命令
  * {@code DecideUnderwritingCommand}。
  * </p>
  */

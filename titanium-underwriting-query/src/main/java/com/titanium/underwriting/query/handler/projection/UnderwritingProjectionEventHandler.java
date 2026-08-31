@@ -9,14 +9,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.titanium.common.jpa.BasePersistable;
-import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
+import com.titanium.underwriting.common.exception.UnderwritingException;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.mapper.UnderwritingViewMapper;
 import com.titanium.underwriting.query.repository.UnderwritingViewRepository;
 import com.titanium.underwriting.query.view.UnderwritingView;
-import com.titanium.underwriting.valueobject.ExtraPremium;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -67,16 +67,8 @@ public class UnderwritingProjectionEventHandler {
         log.info("[读模型投影] 核保状态变更: underwritingId={}, {} -> {}", underwritingId, event.oldStatus(),
                 event.newStatus());
 
-        applyUpdate(underwritingId, "状态变更", view -> {
-            view.setStatus(event.newStatus());
-            view.setUpdatedBy(event.changedBy());
-            if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED
-                    || event.newStatus() == UnderwritingEnum.UnderwritingStatus.DECLINED) {
-                view.setRejectReason(event.reason());
-            } else {
-                view.setReviewComments(event.reason());
-            }
-        });
+        // 事件 → 读模型的结构映射收敛到 MapStruct（状态/拒保原因/审核意见互斥由事件级空安全转换承载）
+        applyUpdate(underwritingId, "状态变更", view -> underwritingViewMapper.applyStatusChanged(view, event));
     }
 
     /**
@@ -89,21 +81,8 @@ public class UnderwritingProjectionEventHandler {
         log.info("[读模型投影] 核保决策: underwritingId={}, riskLevel={}, conclusion={}", underwritingId, event.riskLevel(),
                 event.conclusionType());
 
-        applyUpdate(underwritingId, "核保决策", view -> {
-            view.setRiskLevel(event.riskLevel());
-            view.setConclusionType(event.conclusionType());
-            view.setAuditType(event.auditType());
-            view.setRiskScore(event.riskScore());
-            view.setStatus(event.newStatus());
-            view.setUpdatedBy(event.decidedBy());
-            // UW-3：结构化加费投影到读模型，供 policy 出单经 DTO 读取并入保费
-            ExtraPremium extraPremium = event.extraPremium();
-            if (extraPremium != null) {
-                view.setExtraPremiumType(extraPremium.type() != null ? extraPremium.type().getCode() : null);
-                view.setExtraPremiumRatio(extraPremium.ratio());
-                view.setExtraPremiumFixedAmount(extraPremium.fixedAmount());
-            }
-        });
+        // UW-3：风险/结论/评分/状态及结构化加费随决策事件投影（映射器空安全转换 + IGNORE 保持既有值）
+        applyUpdate(underwritingId, "核保决策", view -> underwritingViewMapper.applyDecided(view, event));
     }
 
     /**
@@ -115,8 +94,8 @@ public class UnderwritingProjectionEventHandler {
             view.setUpdateTime(LocalDateTime.now());
             underwritingViewRepository.save(view);
         }, () -> {
-            throw new IllegalStateException("[读模型投影] " + action + " 失败：未找到读模型记录 underwritingId="
-                    + underwritingId);
+            throw new UnderwritingException(UnderwritingErrorCode.PROJECTION_TARGET_MISSING,
+                    "[读模型投影] " + action + " 失败：未找到读模型记录 underwritingId=" + underwritingId);
         });
     }
 

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 
 /**
@@ -36,16 +37,16 @@ public record PhysicalExamResult(BigDecimal bmi, BigDecimal systolicPressure, Bi
     public PhysicalExamResult(BigDecimal bmi, BigDecimal systolicPressure, BigDecimal diastolicPressure,
                               BigDecimal bloodGlucose, List<String> abnormalItems) {
         if (bmi == null || bmi.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new UnderwritingValidationException(VO_NAME, "bmi", "BMI 必须大于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.BMI_POSITIVE, VO_NAME, "bmi");
         }
         if (systolicPressure == null || systolicPressure.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new UnderwritingValidationException(VO_NAME, "systolicPressure", "收缩压必须大于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.SYSTOLIC_PRESSURE_POSITIVE, VO_NAME, "systolicPressure");
         }
         if (diastolicPressure == null || diastolicPressure.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new UnderwritingValidationException(VO_NAME, "diastolicPressure", "舒张压必须大于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.DIASTOLIC_PRESSURE_POSITIVE, VO_NAME, "diastolicPressure");
         }
         if (bloodGlucose == null || bloodGlucose.compareTo(BigDecimal.ZERO) < 0) {
-            throw new UnderwritingValidationException(VO_NAME, "bloodGlucose", "血糖不能为负");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.BLOOD_GLUCOSE_NEGATIVE, VO_NAME, "bloodGlucose");
         }
         this.bmi = bmi;
         this.systolicPressure = systolicPressure;

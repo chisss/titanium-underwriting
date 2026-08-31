@@ -26,6 +26,9 @@ public class DeadLetterQueueService {
     /** 投影处理组名，与 UnderwritingProjectionEventHandler 的 @ProcessingGroup 一致 */
     private static final String PROCESSING_GROUP = "underwriting-query-group";
 
+    /** 死信队列扫描重试间隔（毫秒） */
+    private static final long DLQ_RETRY_INTERVAL_MS = 30_000L;
+
     private final EventProcessingConfiguration eventProcessingConfig;
 
     /**
@@ -35,7 +38,7 @@ public class DeadLetterQueueService {
      * DLQ 移除，失败则保留待下次重试。
      * </p>
      */
-    @Scheduled(fixedRate = 30000)
+    @Scheduled(fixedRate = DLQ_RETRY_INTERVAL_MS)
     public void retryDeadLetterEvents() {
         Optional<SequencedDeadLetterProcessor<EventMessage<?>>> processorOpt =
                 eventProcessingConfig.sequencedDeadLetterProcessor(PROCESSING_GROUP);

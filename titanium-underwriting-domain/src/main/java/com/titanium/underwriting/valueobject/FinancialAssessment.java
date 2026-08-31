@@ -3,6 +3,7 @@ package com.titanium.underwriting.valueobject;
 import java.io.Serializable;
 import java.math.BigDecimal;
 
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 
 /**
@@ -36,13 +37,13 @@ public record FinancialAssessment(BigDecimal annualIncome, BigDecimal netWorth, 
 
     public FinancialAssessment {
         if (annualIncome == null || annualIncome.compareTo(BigDecimal.ZERO) < 0) {
-            throw new UnderwritingValidationException(VO_NAME, "annualIncome", "年收入不能为负");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.ANNUAL_INCOME_NEGATIVE, VO_NAME, "annualIncome");
         }
         if (netWorth == null) {
-            throw new UnderwritingValidationException(VO_NAME, "netWorth", "净资产不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.NET_WORTH_REQUIRED, VO_NAME, "netWorth");
         }
         if (requestedSumInsured == null || requestedSumInsured.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new UnderwritingValidationException(VO_NAME, "requestedSumInsured", "申请保额必须大于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.REQUESTED_SUM_INSURED_POSITIVE, VO_NAME, "requestedSumInsured");
         }
     }
 

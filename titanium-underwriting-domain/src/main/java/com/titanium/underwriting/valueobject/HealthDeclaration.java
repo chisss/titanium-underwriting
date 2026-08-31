@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 
 /**
@@ -37,10 +38,10 @@ public record HealthDeclaration(List<String> medicalHistory, List<String> family
     public HealthDeclaration(List<String> medicalHistory, List<String> familyHistory, boolean smoking,
                              BigDecimal heightCm, BigDecimal weightKg) {
         if (heightCm == null || heightCm.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new UnderwritingValidationException(VO_NAME, "heightCm", "身高必须大于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.HEIGHT_POSITIVE, VO_NAME, "heightCm");
         }
         if (weightKg == null || weightKg.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new UnderwritingValidationException(VO_NAME, "weightKg", "体重必须大于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.WEIGHT_POSITIVE, VO_NAME, "weightKg");
         }
         // 防御性拷贝，保证值对象不可变
         this.medicalHistory = medicalHistory == null ? Collections.emptyList()

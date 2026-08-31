@@ -11,7 +11,7 @@ import lombok.Data;
 /**
  * 执行核保请求（后台/端上 HTTP 入参）
  * <p>
- * 由 {@code UnderwritingController} 接收，经 {@code UnderwritingWebMapper} 翻译为领域命令
+ * 由 {@code UnderwritingController} 接收，经 {@code UnderwritingWebAssembler} 翻译为领域命令
  * {@code UnderwriteCommand}。与对外远程契约 {@code api.request.UnderwriteDTO} 物理隔离。
  * </p>
  */

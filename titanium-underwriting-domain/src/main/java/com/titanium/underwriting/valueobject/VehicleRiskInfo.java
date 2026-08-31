@@ -3,6 +3,7 @@ package com.titanium.underwriting.valueobject;
 import java.io.Serializable;
 import java.math.BigDecimal;
 
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 
@@ -32,16 +33,16 @@ public record VehicleRiskInfo(int vehicleAgeYears, VehicleUsageType usageNature,
 
     public VehicleRiskInfo {
         if (vehicleAgeYears < 0) {
-            throw new UnderwritingValidationException(VO_NAME, "vehicleAgeYears", "车龄不能为负");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.VEHICLE_AGE_NEGATIVE, VO_NAME, "vehicleAgeYears");
         }
         if (usageNature == null) {
-            throw new UnderwritingValidationException(VO_NAME, "usageNature", "使用性质不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.USAGE_NATURE_REQUIRED, VO_NAME, "usageNature");
         }
         if (historicalClaimCount < 0) {
-            throw new UnderwritingValidationException(VO_NAME, "historicalClaimCount", "历史出险次数不能为负");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.HISTORICAL_CLAIM_NEGATIVE, VO_NAME, "historicalClaimCount");
         }
         if (ncdFactor == null || ncdFactor.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new UnderwritingValidationException(VO_NAME, "ncdFactor", "NCD系数必须大于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.NCD_FACTOR_POSITIVE, VO_NAME, "ncdFactor");
         }
     }
 

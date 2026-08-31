@@ -11,7 +11,7 @@ import lombok.Data;
  * <p>
  * 承载四类险种专属核保输入（健康告知/体检/职业/车辆风险），按险种填充对应字段，
  * 未填充的整块为 {@code null}（寿险填健康+体检、意外险填职业、车险填车辆）。
- * 由 {@code UnderwritingController} 接收，经 {@code UnderwritingWebMapper} 装配为领域命令
+ * 由 {@code UnderwritingController} 接收，经 {@code UnderwritingWebAssembler} 装配为领域命令
  * {@code SubmitUnderwritingInputCommand}。
  * </p>
  */

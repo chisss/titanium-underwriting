@@ -22,6 +22,7 @@ import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.valueobject.UnderwritingId;
+import com.titanium.underwriting.web.assembler.UnderwritingWebAssembler;
 import com.titanium.underwriting.web.dto.CreateUnderwritingDTO;
 import com.titanium.underwriting.web.mapper.UnderwritingWebMapper;
 import com.titanium.underwriting.web.vo.UnderwritingVO;
@@ -44,6 +45,9 @@ class UnderwritingControllerTest {
 
     @Mock
     private UnderwritingWebMapper       underwritingWebMapper;
+
+    @Mock
+    private UnderwritingWebAssembler    underwritingWebAssembler;
 
     @InjectMocks
     private UnderwritingController      underwritingController;
@@ -73,7 +77,7 @@ class UnderwritingControllerTest {
         UnderwritingResponse commandResponse = new UnderwritingResponse();
         commandResponse.setUnderwritingId("UW202401001");
         commandResponse.setPolicyId("POL202401001");
-        when(underwritingWebMapper.toCommand(any(CreateUnderwritingDTO.class), anyString())).thenReturn(command);
+        when(underwritingWebAssembler.toCommand(any(CreateUnderwritingDTO.class), anyString())).thenReturn(command);
         when(underwritingCommandService.createUnderwriting(command)).thenReturn("UW202401001");
         when(underwritingWebMapper.toResponse(command)).thenReturn(commandResponse);
         when(underwritingWebMapper.toVO(commandResponse)).thenReturn(mockVO);

@@ -22,6 +22,7 @@ import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
+import com.titanium.underwriting.web.assembler.UnderwritingWebAssembler;
 import com.titanium.underwriting.web.mapper.UnderwritingWebMapper;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,23 +37,26 @@ class UnderwritingApiProviderTest {
     @Mock
     private UnderwritingWebMapper       mapper;
 
+    @Mock
+    private UnderwritingWebAssembler    assembler;
+
     @InjectMocks
     private UnderwritingApiProvider     provider;
 
     @Test
     void writeApisDoNotReadAsynchronousProjection() {
         CreateUnderwritingCommand createCommand = org.mockito.Mockito.mock(CreateUnderwritingCommand.class);
-        when(mapper.toCommand(any(CreateUnderwritingRequest.class), any(String.class))).thenReturn(createCommand);
+        when(assembler.toCommand(any(CreateUnderwritingRequest.class), any(String.class))).thenReturn(createCommand);
         when(commandService.createUnderwriting(createCommand)).thenReturn("UW-001");
 
         UnderwriteCommand underwriteCommand = org.mockito.Mockito.mock(UnderwriteCommand.class);
-        when(mapper.toCommand(any(String.class), any(UnderwriteRequest.class), any(String.class)))
+        when(assembler.toCommand(any(String.class), any(UnderwriteRequest.class), any(String.class)))
                 .thenReturn(underwriteCommand);
         SubmitUnderwritingInputCommand submitCommand = org.mockito.Mockito.mock(SubmitUnderwritingInputCommand.class);
-        when(mapper.toCommand(any(String.class), any(SubmitUnderwritingInputApiRequest.class), any(String.class)))
+        when(assembler.toCommand(any(String.class), any(SubmitUnderwritingInputApiRequest.class), any(String.class)))
                 .thenReturn(submitCommand);
         DecideUnderwritingCommand decideCommand = org.mockito.Mockito.mock(DecideUnderwritingCommand.class);
-        when(mapper.toCommand(any(String.class), any(DecideUnderwritingApiRequest.class), any(String.class)))
+        when(assembler.toCommand(any(String.class), any(DecideUnderwritingApiRequest.class), any(String.class)))
                 .thenReturn(decideCommand);
 
         assertEquals(HttpStatus.CREATED,

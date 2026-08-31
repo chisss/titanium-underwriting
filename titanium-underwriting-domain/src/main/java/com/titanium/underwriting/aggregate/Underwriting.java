@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 import org.axonframework.commandhandling.CommandHandler;
@@ -17,12 +16,15 @@ import org.axonframework.spring.stereotype.Aggregate;
 
 import com.titanium.common.domain.BaseAggregate;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
+import com.titanium.underwriting.common.constant.UnderwritingConstants;
+import com.titanium.underwriting.common.enums.MaintenanceRiskClassification;
 import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
@@ -30,6 +32,7 @@ import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.exception.UnderwritingStatusException;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
+import com.titanium.underwriting.service.MaintenanceUnderwritingCommandValidator;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.ExtraPremium;
 import com.titanium.underwriting.valueobject.MaintenanceRiskFieldChange;
@@ -65,6 +68,10 @@ public class Underwriting extends BaseAggregate {
     /** 保全核保规则与模型版本随结论冻结，升级必须新增版本而非覆盖历史。 */
     private static final String MAINTENANCE_RULE_VERSION = "maintenance-underwriting-rules/1.1.0";
     private static final String MAINTENANCE_MODEL_VERSION = "deterministic-change-classifier/1.1.0";
+
+    /** 保全核保命令参数校验器（独立校验器，红线 22） */
+    private static final MaintenanceUnderwritingCommandValidator MAINTENANCE_COMMAND_VALIDATOR =
+            new MaintenanceUnderwritingCommandValidator();
 
     @AggregateIdentifier
     private UnderwritingId                      underwritingId;
@@ -115,12 +122,13 @@ public class Underwriting extends BaseAggregate {
     @CommandHandler
     @CreationPolicy(AggregateCreationPolicy.CREATE_IF_MISSING)
     public MaintenanceUnderwritingAssessedEvent handle(AssessMaintenanceUnderwritingCommand command) {
-        validateMaintenanceCommand(command);
+        MAINTENANCE_COMMAND_VALIDATOR.validate(command);
         if (this.underwritingId != null) {
             if (!Objects.equals(this.maintenancePayloadHash, command.payloadHash())
                     || !Objects.equals(this.maintenanceIdempotencyKey, command.idempotencyKey())) {
                 throw new UnderwritingValidationException(
-                        "AssessMaintenanceUnderwritingCommand", "idempotencyKey", "同一幂等键不能提交不同载荷");
+                        UnderwritingErrorCode.IDEMPOTENCY_PAYLOAD_MISMATCH,
+                        "AssessMaintenanceUnderwritingCommand", "idempotencyKey");
             }
             return currentMaintenanceAssessment();
         }
@@ -234,7 +242,8 @@ public class Underwriting extends BaseAggregate {
         // 次标准体评分区间 [30,60)，超出标准体阈值 30 的部分每 1 分折算 2% 加费，封顶 100%
         int excess = Math.max(0, riskScore - SUB_STANDARD_SCORE_BASE);
         double ratio = Math.min(1.0d, excess * EXTRA_PREMIUM_RATE_PER_SCORE);
-        return ExtraPremium.ofRatio(BigDecimal.valueOf(ratio), null, "次标准体核保加费（风险评分 " + riskScore + "）");
+        return ExtraPremium.ofRatio(BigDecimal.valueOf(ratio), null,
+                String.format(UnderwritingConstants.EXTRA_PREMIUM_REASON_TEMPLATE, riskScore));
     }
 
     /**
@@ -365,72 +374,51 @@ public class Underwriting extends BaseAggregate {
         this.updatedBy = event.assessedBy();
     }
 
-    private void validateMaintenanceCommand(AssessMaintenanceUnderwritingCommand command) {
-        final String commandName = "AssessMaintenanceUnderwritingCommand";
-        if (command.underwritingId() == null) {
-            throw new UnderwritingValidationException(commandName, "underwritingId", "核保案件号不能为空");
-        }
-        requireText(commandName, "tenantId", command.tenantId());
-        requireText(commandName, "maintenanceId", command.maintenanceId());
-        requireText(commandName, "policyId", command.policyId());
-        requireText(commandName, "productId", command.productId());
-        requireText(commandName, "productVersion", command.productVersion());
-        requireText(commandName, "itemCode", command.itemCode());
-        requireText(commandName, "configurationVersion", command.configurationVersion());
-        requireText(commandName, "configurationContentHash", command.configurationContentHash());
-        requireText(commandName, "idempotencyKey", command.idempotencyKey());
-        requireText(commandName, "payloadHash", command.payloadHash());
-        requireText(commandName, "requestedBy", command.requestedBy());
-        if (command.policyBaselineVersion() == null || command.policyBaselineVersion() < 0) {
-            throw new UnderwritingValidationException(commandName, "policyBaselineVersion", "保单基准版本不合法");
-        }
-        if (!command.payloadHash().matches("[0-9a-f]{64}")
-                || !command.payloadHash().equals(command.calculatePayloadHash())) {
-            throw new UnderwritingValidationException(commandName, "payloadHash", "请求摘要与结构化载荷不一致");
-        }
-    }
-
     private MaintenanceAssessment assessMaintenanceRisk(AssessMaintenanceUnderwritingCommand command) {
         if (!command.configurationRequiresUnderwriting() && command.riskFieldChanges().isEmpty()) {
             return new MaintenanceAssessment(
-                    MaintenanceUnderwritingConclusion.NOT_REQUIRED, List.of(), "配置与风险差异共同确认无需核保");
+                    MaintenanceUnderwritingConclusion.NOT_REQUIRED, List.of(),
+                    UnderwritingConstants.MAINTENANCE_SUMMARY_NOT_REQUIRED);
         }
         if (!command.configurationRequiresUnderwriting()) {
             return new MaintenanceAssessment(
-                    MaintenanceUnderwritingConclusion.MANUAL_REVIEW, List.of(), "配置跳过核保但存在风险字段变化");
+                    MaintenanceUnderwritingConclusion.MANUAL_REVIEW, List.of(),
+                    UnderwritingConstants.MAINTENANCE_SUMMARY_SKIPPED_WITH_CHANGES);
         }
         boolean rejected = false;
         boolean manual = false;
         List<String> conditions = new ArrayList<>();
         for (MaintenanceRiskFieldChange change : command.riskFieldChanges()) {
-            String classification = change.changeTypeCode().toUpperCase(Locale.ROOT);
-            if (classification.startsWith("UW_REJECT")) {
-                rejected = true;
-            } else if (classification.startsWith("UW_MANUAL")) {
-                manual = true;
-            } else if (classification.startsWith("UW_CONDITIONAL")) {
-                conditions.add("REVIEW_FIELD:" + change.fieldCode());
-            } else if ("COVERAGE_AMOUNT_CHANGE".equals(classification)) {
-                conditions.add("REVIEW_FIELD:" + change.fieldCode());
-            } else if (!classification.startsWith("UW_AUTO_ACCEPT")) {
-                manual = true;
+            MaintenanceRiskClassification classification =
+                    MaintenanceRiskClassification.of(change.changeTypeCode());
+            switch (classification.getVerdict()) {
+                case REJECT -> rejected = true;
+                case MANUAL_REVIEW -> manual = true;
+                case CONDITIONAL -> conditions.add(UnderwritingConstants.MAINTENANCE_CONDITION_PREFIX
+                        + change.fieldCode());
+                case ACCEPT -> {
+                    // 自动接受类变更：无附加动作
+                }
             }
         }
         if (rejected) {
             return new MaintenanceAssessment(
-                    MaintenanceUnderwritingConclusion.REJECTED, List.of(), "版本化规则判定风险不可接受");
+                    MaintenanceUnderwritingConclusion.REJECTED, List.of(),
+                    UnderwritingConstants.MAINTENANCE_SUMMARY_REJECTED);
         }
         if (manual || command.riskFieldChanges().isEmpty()) {
             return new MaintenanceAssessment(
-                    MaintenanceUnderwritingConclusion.MANUAL_REVIEW, List.of(), "风险信息需要核保人员复核");
+                    MaintenanceUnderwritingConclusion.MANUAL_REVIEW, List.of(),
+                    UnderwritingConstants.MAINTENANCE_SUMMARY_MANUAL_REVIEW);
         }
         if (!conditions.isEmpty()) {
             return new MaintenanceAssessment(
                     MaintenanceUnderwritingConclusion.CONDITIONAL_APPROVED, conditions,
-                    "风险可在附加条件下接受");
+                    UnderwritingConstants.MAINTENANCE_SUMMARY_CONDITIONAL_APPROVED);
         }
         return new MaintenanceAssessment(
-                MaintenanceUnderwritingConclusion.APPROVED, List.of(), "版本化规则判定风险可接受");
+                MaintenanceUnderwritingConclusion.APPROVED, List.of(),
+                UnderwritingConstants.MAINTENANCE_SUMMARY_APPROVED);
     }
 
     private MaintenanceUnderwritingAssessedEvent currentMaintenanceAssessment() {
@@ -452,12 +440,6 @@ public class Underwriting extends BaseAggregate {
         };
     }
 
-    private void requireText(String commandName, String fieldName, String value) {
-        if (value == null || value.isBlank()) {
-            throw new UnderwritingValidationException(commandName, fieldName, "字段不能为空");
-        }
-    }
-
     private record MaintenanceAssessment(
             MaintenanceUnderwritingConclusion conclusion,
             List<String> additionalConditions,
@@ -468,93 +450,117 @@ public class Underwriting extends BaseAggregate {
     private void validateCreateCommand(CreateUnderwritingCommand command) {
         final String commandName = "CreateUnderwritingCommand";
         if (command.underwritingId() == null) {
-            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.UNDERWRITING_ID_REQUIRED,
+                    commandName, "underwritingId");
         }
         if (command.policyId() == null) {
-            throw new UnderwritingValidationException(commandName, "policyId", "保单ID不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.POLICY_ID_REQUIRED,
+                    commandName, "policyId");
         }
         if (command.customerId() == null) {
-            throw new UnderwritingValidationException(commandName, "customerId", "客户ID不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.CUSTOMER_ID_REQUIRED,
+                    commandName, "customerId");
         }
         if (command.amount() == null) {
-            throw new UnderwritingValidationException(commandName, "amount", "核保金额不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.UNDERWRITING_AMOUNT_REQUIRED,
+                    commandName, "amount");
         }
         if (command.underwritingType() == null) {
-            throw new UnderwritingValidationException(commandName, "underwritingType", "核保类型不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.UNDERWRITING_TYPE_REQUIRED,
+                    commandName, "underwritingType");
         }
         if (command.createdBy() == null || command.createdBy().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "createdBy", "创建人不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.CREATED_BY_REQUIRED,
+                    commandName, "createdBy");
         }
         if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.TENANT_ID_REQUIRED,
+                    commandName, "tenantId");
         }
     }
 
     private void validateUnderwriteCommand(UnderwriteCommand command) {
         final String commandName = "UnderwriteCommand";
         if (!this.underwritingId.equals(command.underwritingId())) {
-            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不匹配");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.UNDERWRITING_ID_MISMATCH,
+                    commandName, "underwritingId");
         }
         if (command.processedBy() == null || command.processedBy().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "processedBy", "处理人不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.PROCESSED_BY_REQUIRED,
+                    commandName, "processedBy");
         }
         if (command.reason() == null || command.reason().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "reason", "处理原因不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.REASON_REQUIRED,
+                    commandName, "reason");
         }
         if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.TENANT_ID_REQUIRED,
+                    commandName, "tenantId");
         }
     }
 
     private void validateManualReviewCommand(ManualReviewCommand command) {
         final String commandName = "ManualReviewCommand";
         if (!this.underwritingId.equals(command.underwritingId())) {
-            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不匹配");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.UNDERWRITING_ID_MISMATCH,
+                    commandName, "underwritingId");
         }
         if (command.reviewedBy() == null || command.reviewedBy().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "reviewedBy", "审核人不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.REVIEWED_BY_REQUIRED,
+                    commandName, "reviewedBy");
         }
         if (command.reviewComments() == null || command.reviewComments().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "reviewComments", "审核意见不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.REVIEW_COMMENTS_REQUIRED,
+                    commandName, "reviewComments");
         }
         if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.TENANT_ID_REQUIRED,
+                    commandName, "tenantId");
         }
     }
 
     private void validateSubmitInputCommand(SubmitUnderwritingInputCommand command) {
         final String commandName = "SubmitUnderwritingInputCommand";
         if (!this.underwritingId.equals(command.underwritingId())) {
-            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不匹配");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.UNDERWRITING_ID_MISMATCH,
+                    commandName, "underwritingId");
         }
         if (command.underwritingInput() == null) {
-            throw new UnderwritingValidationException(commandName, "underwritingInput", "核保输入容器不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.UNDERWRITING_INPUT_REQUIRED,
+                    commandName, "underwritingInput");
         }
         if (command.submittedBy() == null || command.submittedBy().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "submittedBy", "提交人不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.SUBMITTED_BY_REQUIRED,
+                    commandName, "submittedBy");
         }
         if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.TENANT_ID_REQUIRED,
+                    commandName, "tenantId");
         }
     }
 
     private void validateDecideCommand(DecideUnderwritingCommand command) {
         final String commandName = "DecideUnderwritingCommand";
         if (!this.underwritingId.equals(command.underwritingId())) {
-            throw new UnderwritingValidationException(commandName, "underwritingId", "核保ID不匹配");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.UNDERWRITING_ID_MISMATCH,
+                    commandName, "underwritingId");
         }
         if (command.auditType() == null) {
-            throw new UnderwritingValidationException(commandName, "auditType", "核保方式不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.AUDIT_TYPE_REQUIRED,
+                    commandName, "auditType");
         }
         if (command.decidedBy() == null || command.decidedBy().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "decidedBy", "决策人不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.DECIDED_BY_REQUIRED,
+                    commandName, "decidedBy");
         }
         if (command.tenantId() == null || command.tenantId().trim().isEmpty()) {
-            throw new UnderwritingValidationException(commandName, "tenantId", "租户ID不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.TENANT_ID_REQUIRED,
+                    commandName, "tenantId");
         }
         // 决策前必须已提交险种专属输入，否则违反核保业务规则
         if (this.underwritingInput == null) {
-            throw new UnderwritingStatusException(this.underwritingId.toString(),
+            throw new UnderwritingStatusException(UnderwritingErrorCode.UNDERWRITING_DECISION_INPUT_MISSING,
+                    this.underwritingId.toString(),
                     this.status == null ? "UNKNOWN" : this.status.getCode(),
                     UnderwritingEnum.UnderwritingStatus.APPROVED.getCode(),
                     "核保决策前必须先提交险种专属核保输入");

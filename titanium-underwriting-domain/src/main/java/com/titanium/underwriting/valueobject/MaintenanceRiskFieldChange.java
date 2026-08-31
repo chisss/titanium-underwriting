@@ -1,5 +1,6 @@
 package com.titanium.underwriting.valueobject;
 
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 
 /** 核保域接收的规范化保全字段差异。 */
@@ -21,7 +22,7 @@ public record MaintenanceRiskFieldChange(
     private static String requireText(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new UnderwritingValidationException(
-                    "MaintenanceRiskFieldChange", fieldName, "字段不能为空");
+                    UnderwritingErrorCode.FIELD_REQUIRED, "MaintenanceRiskFieldChange", fieldName);
         }
         return value.trim();
     }

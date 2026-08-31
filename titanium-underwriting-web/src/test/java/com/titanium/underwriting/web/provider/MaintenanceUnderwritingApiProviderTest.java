@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,6 +24,7 @@ import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.UnderwritingId;
+import com.titanium.underwriting.web.mapper.MaintenanceUnderwritingWebMapper;
 
 class MaintenanceUnderwritingApiProviderTest {
 
@@ -36,8 +38,8 @@ class MaintenanceUnderwritingApiProviderTest {
                 List.of("REVIEW_FIELD:insured.occupation"), "附加条件通过",
                 LocalDateTime.parse("2026-08-25T12:00:00"),
                 LocalDateTime.parse("2026-08-25T12:00:00"), "maintenance-service"));
-        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(
-                new MaintenanceUnderwritingApiProvider(commandService)).build();
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new MaintenanceUnderwritingApiProvider(commandService,
+                Mappers.getMapper(MaintenanceUnderwritingWebMapper.class))).build();
 
         MvcResult result = mockMvc.perform(post("/underwriting/api/maintenance-assessments")
                         .header("X-Tenant-ID", "tenant-1")

@@ -2,6 +2,9 @@ package com.titanium.underwriting.valueobject;
 
 import java.io.Serializable;
 
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
+import com.titanium.underwriting.exception.UnderwritingValidationException;
+
 /**
  * 除外责任值对象（核保修改条件承保的结构化除外明细）
  * <p>
@@ -20,7 +23,8 @@ public record ExclusionItem(String exclusionCode, String description, boolean pe
 
     public ExclusionItem {
         if (description == null || description.isBlank()) {
-            throw new IllegalArgumentException("除外责任描述不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.EXCLUSION_DESCRIPTION_REQUIRED,
+                    "ExclusionItem");
         }
     }
 }

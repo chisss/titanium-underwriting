@@ -1,8 +1,11 @@
 package com.titanium.underwriting.query.service.impl;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.query.mapper.UnderwritingQueryResultMapper;
 import com.titanium.underwriting.query.repository.UnderwritingViewRepository;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.query.result.UnderwritingStatisticsResult;
@@ -39,19 +43,35 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
             UnderwritingEnum.UnderwritingStatus.PENDING, UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW,
             UnderwritingEnum.UnderwritingStatus.REVIEW, UnderwritingEnum.UnderwritingStatus.AWAITING_INFO);
 
-    private final UnderwritingViewRepository underwritingViewRepository;
+    // ========== JPA 查询字段名常量（集中管理，禁止散落 root.get("...") 裸字段名，红线 21） ==========
+
+    /** 租户ID字段名 */
+    private static final String FIELD_TENANT_ID      = "tenantId";
+    /** 核保状态字段名 */
+    private static final String FIELD_STATUS         = "status";
+    /** 风险等级字段名 */
+    private static final String FIELD_RISK_LEVEL     = "riskLevel";
+    /** 核保方式字段名 */
+    private static final String FIELD_AUDIT_TYPE     = "auditType";
+    /** 核保员ID字段名 */
+    private static final String FIELD_UNDERWRITER_ID = "underwriterId";
+    /** 业务创建时间字段名 */
+    private static final String FIELD_CREATED_AT     = "createdAt";
+
+    private final UnderwritingViewRepository    underwritingViewRepository;
+    private final UnderwritingQueryResultMapper underwritingQueryResultMapper;
 
     @Override
     public UnderwritingQueryResult findById(String underwritingId, String tenantId) {
         log.info("查询核保详情: underwritingId={}, tenantId={}", underwritingId, tenantId);
         return underwritingViewRepository.findByUnderwritingIdAndTenantId(underwritingId, tenantId)
-                .map(this::toQueryResult).orElse(null);
+                .map(underwritingQueryResultMapper::toQueryResult).orElse(null);
     }
 
     @Override
     public UnderwritingQueryResult findByPolicyId(String policyId, String tenantId) {
         log.info("根据保单ID查询核保: policyId={}, tenantId={}", policyId, tenantId);
-        return underwritingViewRepository.findByPolicyIdAndTenantId(policyId, tenantId).map(this::toQueryResult)
+        return underwritingViewRepository.findByPolicyIdAndTenantId(policyId, tenantId).map(underwritingQueryResultMapper::toQueryResult)
                 .orElse(null);
     }
 
@@ -59,7 +79,7 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
     public Page<UnderwritingQueryResult> findByStatus(UnderwritingEnum.UnderwritingStatus status, String tenantId,
                                                       Pageable pageable) {
         log.info("根据状态查询核保: status={}, tenantId={}", status, tenantId);
-        return underwritingViewRepository.findByStatusAndTenantId(status, tenantId, pageable).map(this::toQueryResult);
+        return underwritingViewRepository.findByStatusAndTenantId(status, tenantId, pageable).map(underwritingQueryResultMapper::toQueryResult);
     }
 
     @Override
@@ -67,7 +87,7 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
                                                          Pageable pageable) {
         log.info("根据风险等级查询核保: riskLevel={}, tenantId={}", riskLevel, tenantId);
         return underwritingViewRepository.findByRiskLevelAndTenantId(riskLevel, tenantId, pageable)
-                .map(this::toQueryResult);
+                .map(underwritingQueryResultMapper::toQueryResult);
     }
 
     @Override
@@ -79,7 +99,7 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
         return underwritingViewRepository
                 .findByUnderwriterIdAndCreatedAtBetweenAndTenantId(underwriterId, startTime, endTime, tenantId,
                         pageable)
-                .map(this::toQueryResult);
+                .map(underwritingQueryResultMapper::toQueryResult);
     }
 
     @Override
@@ -93,35 +113,35 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
                 auditType, underwriterId, tenantId);
         Specification<UnderwritingView> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("tenantId"), tenantId));
+            predicates.add(cb.equal(root.get(FIELD_TENANT_ID), tenantId));
             if (status != null) {
-                predicates.add(cb.equal(root.get("status"), status));
+                predicates.add(cb.equal(root.get(FIELD_STATUS), status));
             }
             if (riskLevel != null) {
-                predicates.add(cb.equal(root.get("riskLevel"), riskLevel));
+                predicates.add(cb.equal(root.get(FIELD_RISK_LEVEL), riskLevel));
             }
             if (auditType != null) {
-                predicates.add(cb.equal(root.get("auditType"), auditType));
+                predicates.add(cb.equal(root.get(FIELD_AUDIT_TYPE), auditType));
             }
             if (underwriterId != null) {
-                predicates.add(cb.equal(root.get("underwriterId"), underwriterId));
+                predicates.add(cb.equal(root.get(FIELD_UNDERWRITER_ID), underwriterId));
             }
             if (startTime != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), startTime));
+                predicates.add(cb.greaterThanOrEqualTo(root.get(FIELD_CREATED_AT), startTime));
             }
             if (endTime != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), endTime));
+                predicates.add(cb.lessThanOrEqualTo(root.get(FIELD_CREATED_AT), endTime));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return underwritingViewRepository.findAll(spec, pageable).map(this::toQueryResult);
+        return underwritingViewRepository.findAll(spec, pageable).map(underwritingQueryResultMapper::toQueryResult);
     }
 
     @Override
     public List<UnderwritingQueryResult> findHistoryByCustomer(String customerId, String tenantId) {
         log.info("查询客户核保历史: customerId={}, tenantId={}", customerId, tenantId);
         return underwritingViewRepository.findByCustomerIdAndTenantIdOrderByCreatedAtDesc(customerId, tenantId).stream()
-                .map(this::toQueryResult).toList();
+                .map(underwritingQueryResultMapper::toQueryResult).toList();
     }
 
     @Override
@@ -131,26 +151,26 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
         log.info("查询待处理核保任务: underwriterId={}, status={}, tenantId={}", underwriterId, status, tenantId);
         Specification<UnderwritingView> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.equal(root.get("tenantId"), tenantId));
+            predicates.add(cb.equal(root.get(FIELD_TENANT_ID), tenantId));
             if (underwriterId != null) {
-                predicates.add(cb.equal(root.get("underwriterId"), underwriterId));
+                predicates.add(cb.equal(root.get(FIELD_UNDERWRITER_ID), underwriterId));
             }
             if (status != null) {
-                predicates.add(cb.equal(root.get("status"), status));
+                predicates.add(cb.equal(root.get(FIELD_STATUS), status));
             } else {
-                predicates.add(root.get("status").in(PENDING_STATUSES));
+                predicates.add(root.get(FIELD_STATUS).in(PENDING_STATUSES));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        return underwritingViewRepository.findAll(spec, pageable).map(this::toQueryResult);
+        return underwritingViewRepository.findAll(spec, pageable).map(underwritingQueryResultMapper::toQueryResult);
     }
 
     @Override
     public UnderwritingStatisticsResult getStatistics(LocalDateTime startTime, LocalDateTime endTime, String tenantId) {
         log.info("获取核保统计数据: startTime={}, endTime={}, tenantId={}", startTime, endTime, tenantId);
-        Specification<UnderwritingView> spec = (root, query, cb) -> cb.and(cb.equal(root.get("tenantId"), tenantId),
-                cb.greaterThanOrEqualTo(root.get("createdAt"), startTime),
-                cb.lessThanOrEqualTo(root.get("createdAt"), endTime));
+        Specification<UnderwritingView> spec = (root, query, cb) -> cb.and(cb.equal(root.get(FIELD_TENANT_ID), tenantId),
+                cb.greaterThanOrEqualTo(root.get(FIELD_CREATED_AT), startTime),
+                cb.lessThanOrEqualTo(root.get(FIELD_CREATED_AT), endTime));
         List<UnderwritingView> views = underwritingViewRepository.findAll(spec);
         return buildStatistics(startTime, endTime, tenantId, views);
     }
@@ -180,12 +200,12 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
         result.setDeclinedCount(declined);
         result.setPendingCount(pending);
         result.setTotalAmount(views.stream().map(UnderwritingView::getAmount)
-                .filter(java.util.Objects::nonNull).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add));
+                .filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add));
         if (total > 0) {
-            result.setOverallPassRate(java.math.BigDecimal.valueOf(standard + rated)
-                    .divide(java.math.BigDecimal.valueOf(total), 4, java.math.RoundingMode.HALF_UP));
+            result.setOverallPassRate(BigDecimal.valueOf(standard + rated)
+                    .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP));
         } else {
-            result.setOverallPassRate(java.math.BigDecimal.ZERO);
+            result.setOverallPassRate(BigDecimal.ZERO);
         }
         return result;
     }
@@ -195,35 +215,5 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
      */
     private long countByStatus(List<UnderwritingView> views, UnderwritingEnum.UnderwritingStatus status) {
         return views.stream().filter(v -> v.getStatus() == status).count();
-    }
-
-    /**
-     * 读模型实体 → 查询结果 DTO
-     */
-    private UnderwritingQueryResult toQueryResult(UnderwritingView view) {
-        UnderwritingQueryResult result = new UnderwritingQueryResult();
-        result.setUnderwritingId(view.getUnderwritingId());
-        result.setPolicyId(view.getPolicyId());
-        result.setCustomerId(view.getCustomerId());
-        result.setAmount(view.getAmount());
-        result.setUnderwritingType(view.getUnderwritingType());
-        result.setStatus(view.getStatus());
-        result.setRejectReason(view.getRejectReason());
-        result.setReviewComments(view.getReviewComments());
-        result.setRiskLevel(view.getRiskLevel());
-        result.setConclusionType(view.getConclusionType());
-        result.setAuditType(view.getAuditType());
-        result.setUnderwriterId(view.getUnderwriterId());
-        result.setRiskScore(view.getRiskScore());
-        result.setExtraPremiumType(view.getExtraPremiumType());
-        result.setExtraPremiumRatio(view.getExtraPremiumRatio());
-        result.setExtraPremiumFixedAmount(view.getExtraPremiumFixedAmount());
-        result.setCreatedAt(view.getCreatedAt());
-        result.setCreatedBy(view.getCreatedBy());
-        result.setUpdatedAt(view.getUpdateTime());
-        result.setUpdatedBy(view.getUpdatedBy());
-        result.setTenantId(view.getTenantId());
-        result.setVersion(view.getVersion());
-        return result;
     }
 }

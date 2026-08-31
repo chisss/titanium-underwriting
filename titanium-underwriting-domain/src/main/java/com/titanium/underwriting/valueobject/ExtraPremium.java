@@ -4,6 +4,8 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 
 import com.titanium.metadata.enums.underwriting.ExtraPremiumType;
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
+import com.titanium.underwriting.exception.UnderwritingValidationException;
 
 /**
  * 加费值对象（核保次标准体承保的结构化加费明细）
@@ -30,17 +32,20 @@ public record ExtraPremium(ExtraPremiumType type, BigDecimal ratio, BigDecimal f
 
     public ExtraPremium {
         if (type == null) {
-            throw new IllegalArgumentException("加费类型不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.EXTRA_PREMIUM_TYPE_REQUIRED, "ExtraPremium");
         }
         if (type.isRatioBased()) {
             if (ratio == null || ratio.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("比例加费的加费率必须大于零");
+                throw new UnderwritingValidationException(UnderwritingErrorCode.EXTRA_PREMIUM_RATIO_POSITIVE,
+                        "ExtraPremium");
             }
         } else if (fixedAmount == null || fixedAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("固定额加费的加费额必须大于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.EXTRA_PREMIUM_AMOUNT_POSITIVE,
+                    "ExtraPremium");
         }
         if (durationYears != null && durationYears <= 0) {
-            throw new IllegalArgumentException("加费期限必须大于零（永久加费请传 null）");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.EXTRA_PREMIUM_DURATION_POSITIVE,
+                    "ExtraPremium");
         }
     }
 
@@ -77,7 +82,7 @@ public record ExtraPremium(ExtraPremiumType type, BigDecimal ratio, BigDecimal f
      */
     public BigDecimal applyTo(BigDecimal standardPremium) {
         if (standardPremium == null) {
-            throw new IllegalArgumentException("标准保费不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.STANDARD_PREMIUM_REQUIRED, "ExtraPremium");
         }
         if (type.isRatioBased()) {
             return standardPremium.multiply(BigDecimal.ONE.add(ratio));

@@ -28,6 +28,7 @@ import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.query.result.UnderwritingStatisticsResult;
 import com.titanium.underwriting.valueobject.UnderwritingId;
+import com.titanium.underwriting.web.assembler.UnderwritingWebAssembler;
 import com.titanium.underwriting.web.dto.CreateUnderwritingDTO;
 import com.titanium.underwriting.web.dto.DecideUnderwritingDTO;
 import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
@@ -43,9 +44,9 @@ import lombok.RequiredArgsConstructor;
  * <p>
  * 面向管理后台/端上，路径 {@code /web/v1/underwritings}，入参 web 层 {@code XxxRequest}、出参
  * {@code UnderwritingVO}，<b>不 implements UnderwritingApi</b>（远程契约由
- * {@code UnderwritingApiProvider} 承接）。表现层经 {@link UnderwritingWebMapper} 把 Request 转为
- * CQRS 命令交 {@link UnderwritingCommandService}，读入口查读模型经 {@link UnderwritingQueryAppService}
- * 后转 VO。web 可依赖 command/query，但不碰聚合根。与 {@code UnderwritingApiProvider} 平行收敛到同一门面。
+ * {@code UnderwritingApiProvider} 承接）。表现层经 {@link UnderwritingWebAssembler} 把 Request 装配为
+ * CQRS 命令交 {@link UnderwritingCommandService}，读入口查读模型经 {@link UnderwritingWebMapper}
+ * 转 VO。web 可依赖 command/query，但不碰聚合根。与 {@code UnderwritingApiProvider} 平行收敛到同一门面。
  * </p>
  */
 @RestController
@@ -55,6 +56,7 @@ public class UnderwritingController {
 
     private final UnderwritingCommandService  underwritingCommandService;
     private final UnderwritingQueryAppService underwritingQueryAppService;
+    private final UnderwritingWebAssembler    underwritingWebAssembler;
     private final UnderwritingWebMapper       underwritingWebMapper;
     private final UnderwritingStatisticsWebMapper underwritingStatisticsWebMapper;
 
@@ -68,7 +70,7 @@ public class UnderwritingController {
     @PostMapping
     public ResponseEntity<UnderwritingVO> createUnderwriting(@RequestBody CreateUnderwritingDTO request,
                                                              @RequestHeader("X-Tenant-ID") String tenantId) {
-        CreateUnderwritingCommand command = underwritingWebMapper.toCommand(request, tenantId);
+        CreateUnderwritingCommand command = underwritingWebAssembler.toCommand(request, tenantId);
         underwritingCommandService.createUnderwriting(command);
         return new ResponseEntity<>(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(command)),
                 HttpStatus.CREATED);
@@ -99,7 +101,7 @@ public class UnderwritingController {
     public ResponseEntity<UnderwritingVO> underwrite(@PathVariable String underwritingId,
                                                      @RequestBody UnderwriteDTO request,
                                                      @RequestHeader("X-Tenant-ID") String tenantId) {
-        UnderwriteCommand command = underwritingWebMapper.toCommand(underwritingId, request, tenantId);
+        UnderwriteCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingStatusChangedEvent event = underwritingCommandService.underwrite(command);
         return ResponseEntity.ok(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
     }
@@ -116,7 +118,7 @@ public class UnderwritingController {
     public ResponseEntity<UnderwritingVO> submitInput(@PathVariable String underwritingId,
                                                       @RequestBody SubmitUnderwritingInputDTO request,
                                                       @RequestHeader("X-Tenant-ID") String tenantId) {
-        SubmitUnderwritingInputCommand command = underwritingWebMapper.toCommand(underwritingId, request, tenantId);
+        SubmitUnderwritingInputCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingInputSubmittedEvent event = underwritingCommandService.submitInput(command);
         return ResponseEntity.ok(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
     }
@@ -133,7 +135,7 @@ public class UnderwritingController {
     public ResponseEntity<UnderwritingVO> decide(@PathVariable String underwritingId,
                                                  @RequestBody DecideUnderwritingDTO request,
                                                  @RequestHeader("X-Tenant-ID") String tenantId) {
-        DecideUnderwritingCommand command = underwritingWebMapper.toCommand(underwritingId, request, tenantId);
+        DecideUnderwritingCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingDecidedEvent event = underwritingCommandService.decide(command);
         return ResponseEntity.ok(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
     }

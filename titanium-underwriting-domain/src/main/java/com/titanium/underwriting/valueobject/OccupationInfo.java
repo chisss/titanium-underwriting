@@ -3,6 +3,7 @@ package com.titanium.underwriting.valueobject;
 import java.io.Serializable;
 import java.math.BigDecimal;
 
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 
 /**
@@ -40,13 +41,13 @@ public record OccupationInfo(String occupationName, int occupationCategory,
 
     public OccupationInfo {
         if (occupationName == null || occupationName.trim().isEmpty()) {
-            throw new UnderwritingValidationException(VO_NAME, "occupationName", "职业名称不能为空");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.OCCUPATION_NAME_REQUIRED, VO_NAME, "occupationName");
         }
         if (occupationCategory < MIN_CATEGORY || occupationCategory > MAX_CATEGORY) {
-            throw new UnderwritingValidationException(VO_NAME, "occupationCategory", "职业类别必须在 1-6 之间");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.OCCUPATION_CATEGORY_INVALID, VO_NAME, "occupationCategory");
         }
         if (riskFactor == null || riskFactor.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new UnderwritingValidationException(VO_NAME, "riskFactor", "危险系数必须大于零");
+            throw new UnderwritingValidationException(UnderwritingErrorCode.RISK_FACTOR_POSITIVE, VO_NAME, "riskFactor");
         }
     }
 

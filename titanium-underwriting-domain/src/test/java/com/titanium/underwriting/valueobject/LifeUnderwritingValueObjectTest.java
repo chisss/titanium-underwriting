@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.titanium.metadata.enums.underwriting.ExtraPremiumType;
+import com.titanium.underwriting.exception.UnderwritingValidationException;
 
 /**
  * 寿险核保结构化值对象测试（P1.6 财务评估 + 加费）
@@ -98,7 +99,7 @@ class LifeUnderwritingValueObjectTest {
         try {
             ExtraPremium.ofRatio(BigDecimal.ZERO, null, "非法");
             throw new AssertionError("零加费率应抛异常");
-        } catch (IllegalArgumentException expected) {
+        } catch (UnderwritingValidationException expected) {
             // 预期
         }
     }

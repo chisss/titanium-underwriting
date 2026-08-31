@@ -9,9 +9,13 @@ import org.mapstruct.Named;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
+import com.titanium.underwriting.event.UnderwritingDecidedEvent;
+import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.view.UnderwritingView;
 import com.titanium.underwriting.valueobject.CustomerId;
+import com.titanium.underwriting.valueobject.ExtraPremium;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -50,6 +54,31 @@ public interface UnderwritingViewMapper {
     @Mapping(target = "updateTime", ignore = true)
     void applyCreated(@MappingTarget UnderwritingView view, UnderwritingCreatedEvent event);
 
+    /**
+     * 核保状态变更事件 → 读模型（就地更新）：状态与更新人直映；拒保/退回类状态写入拒保原因、
+     * 其余状态写入审核意见（互斥逻辑由事件级 {@code @Named} 空安全转换承载，IGNORE 保持另一侧既有值）。
+     */
+    @Mapping(target = "underwritingId", ignore = true)
+    @Mapping(target = "status", source = "newStatus")
+    @Mapping(target = "updatedBy", source = "changedBy")
+    @Mapping(target = "rejectReason", source = "event", qualifiedByName = "rejectReasonOfStatusChanged")
+    @Mapping(target = "reviewComments", source = "event", qualifiedByName = "reviewCommentsOfStatusChanged")
+    void applyStatusChanged(@MappingTarget UnderwritingView view, UnderwritingStatusChangedEvent event);
+
+    /**
+     * 核保决策事件 → 读模型（就地更新）：风险等级/结论/方式/评分直映，状态与更新人改名映射；
+     * 结构化加费三字段在加费明细为空时经空安全转换返回 null，由 IGNORE 保持既有值。
+     */
+    @Mapping(target = "underwritingId", ignore = true)
+    @Mapping(target = "policyId", ignore = true)
+    @Mapping(target = "status", source = "newStatus")
+    @Mapping(target = "updatedBy", source = "decidedBy")
+    @Mapping(target = "extraPremiumType", source = "extraPremium", qualifiedByName = "extraPremiumTypeCode")
+    @Mapping(target = "extraPremiumRatio", source = "extraPremium", qualifiedByName = "extraPremiumRatioValue")
+    @Mapping(target = "extraPremiumFixedAmount", source = "extraPremium",
+            qualifiedByName = "extraPremiumFixedAmountValue")
+    void applyDecided(@MappingTarget UnderwritingView view, UnderwritingDecidedEvent event);
+
     /** 核保标识值对象 → 标识串（空安全） */
     @Named("underwritingIdValue")
     default String underwritingIdValue(UnderwritingId underwritingId) {
@@ -72,5 +101,46 @@ public interface UnderwritingViewMapper {
     @Named("underwritingAmountValue")
     default BigDecimal underwritingAmountValue(UnderwritingAmount amount) {
         return amount != null ? amount.amount() : null;
+    }
+
+    /** 拒保/撤单状态 → 拒保原因，其余状态返回 null（IGNORE 保持既有值） */
+    @Named("rejectReasonOfStatusChanged")
+    default String rejectReasonOfStatusChanged(UnderwritingStatusChangedEvent event) {
+        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED
+                || event.newStatus() == UnderwritingEnum.UnderwritingStatus.DECLINED) {
+            return event.reason();
+        }
+        return null;
+    }
+
+    /** 非拒保状态 → 审核意见，拒保/撤单状态返回 null（IGNORE 保持既有值） */
+    @Named("reviewCommentsOfStatusChanged")
+    default String reviewCommentsOfStatusChanged(UnderwritingStatusChangedEvent event) {
+        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED
+                || event.newStatus() == UnderwritingEnum.UnderwritingStatus.DECLINED) {
+            return null;
+        }
+        return event.reason();
+    }
+
+    /** 加费明细 → 加费类型 code（空安全） */
+    @Named("extraPremiumTypeCode")
+    default String extraPremiumTypeCode(ExtraPremium extraPremium) {
+        if (extraPremium == null || extraPremium.type() == null) {
+            return null;
+        }
+        return extraPremium.type().getCode();
+    }
+
+    /** 加费明细 → 加费率（空安全） */
+    @Named("extraPremiumRatioValue")
+    default BigDecimal extraPremiumRatioValue(ExtraPremium extraPremium) {
+        return extraPremium == null ? null : extraPremium.ratio();
+    }
+
+    /** 加费明细 → 固定加费额（空安全） */
+    @Named("extraPremiumFixedAmountValue")
+    default BigDecimal extraPremiumFixedAmountValue(ExtraPremium extraPremium) {
+        return extraPremium == null ? null : extraPremium.fixedAmount();
     }
 }
