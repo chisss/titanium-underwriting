@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 
 import com.titanium.metadata.response.ApiResponse;
 import com.titanium.product.api.ProductApi;
-import com.titanium.product.api.response.UnderwritingConfigResponse;
+import com.titanium.product.api.response.config.UnderwritingConfigResponse;
 import com.titanium.underwriting.port.ProductUnderwritingConfigPort;
 
 import lombok.RequiredArgsConstructor;
