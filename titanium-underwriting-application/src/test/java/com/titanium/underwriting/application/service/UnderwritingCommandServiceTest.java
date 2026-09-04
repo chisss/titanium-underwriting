@@ -14,8 +14,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.application.orchestration.UnderwritingDecisionOrchestrator;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
-import com.titanium.underwriting.port.ProductUnderwritingConfigPort;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
@@ -25,13 +25,13 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
 class UnderwritingCommandServiceTest {
 
     @Mock
-    private CommandGateway                commandGateway;
+    private CommandGateway                  commandGateway;
 
     @Mock
-    private ProductUnderwritingConfigPort productUnderwritingConfigPort;
+    private UnderwritingDecisionOrchestrator underwritingDecisionOrchestrator;
 
     @InjectMocks
-    private UnderwritingCommandService    service;
+    private UnderwritingCommandService      service;
 
     @Test
     void createReturnsCommandIdentifierWhenAxonReturnsUnderwritingId() {

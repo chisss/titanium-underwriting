@@ -65,6 +65,9 @@ public class UnderwritingQueryResult {
     /** 固定加费额（固定额加费时用） */
     private BigDecimal                          extraPremiumFixedAmount;
 
+    /** 加费原因（规则引擎加费结论的原因说明） */
+    private String                              extraPremiumReason;
+
     /** 业务创建时间 */
     private LocalDateTime                       createdAt;
 

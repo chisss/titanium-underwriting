@@ -76,7 +76,7 @@ class UnderwritingSynchronousCommandTest {
     void decideEmptyInputReturnsFinalStandardDecisionSynchronously() {
         UnderwritingInput emptyInput = UnderwritingInput.builder().build();
         DecideUnderwritingCommand decide = new DecideUnderwritingCommand(UNDERWRITING_ID,
-                UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true);
+                UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true, null);
 
         fixture.given(createdEvent(), new UnderwritingInputSubmittedEvent(UNDERWRITING_ID, emptyInput,
                 LocalDateTime.now(), "system", TENANT_ID))

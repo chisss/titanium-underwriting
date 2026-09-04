@@ -67,6 +67,18 @@ public class UnderwritingVO {
     @Schema(description = "加费原因")
     private String surchargeReason;
 
+    @Schema(description = "加费类型（结构化加费：PERMANENT_RATIO/TEMPORARY_RATIO/FIXED_AMOUNT）")
+    private String extraPremiumType;
+
+    @Schema(description = "加费率（结构化加费，比例加费时用）", example = "0.15")
+    private BigDecimal extraPremiumRatio;
+
+    @Schema(description = "固定加费额（结构化加费，固定额加费时用）")
+    private BigDecimal extraPremiumFixedAmount;
+
+    @Schema(description = "加费原因（结构化加费，规则引擎结论原因）")
+    private String extraPremiumReason;
+
     @Schema(description = "除外责任")
     private String exclusions;
 

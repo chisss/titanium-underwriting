@@ -75,6 +75,20 @@
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
 
+        <!-- 规则引擎域 API（dev-505：产品核保配置→规则集→核保执行链路） -->
+        <dependency>
+            <groupId>com.titanium</groupId>
+            <artifactId>titanium-rule-engine-api</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- 特征中心域 API（dev-505/G21：规则变量特征提取） -->
+        <dependency>
+            <groupId>com.titanium</groupId>
+            <artifactId>titanium-feature-center-api</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
         <!-- mapstruct-->
         <dependency>
             <groupId>org.mapstruct</groupId>

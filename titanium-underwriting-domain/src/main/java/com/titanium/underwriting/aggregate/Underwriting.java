@@ -195,31 +195,51 @@ public class Underwriting extends BaseAggregate {
     /**
      * 核保决策
      * <p>
-     * 基于已提交的险种专属输入评估风险等级，并映射为核保结论与核保状态，
-     * 内聚核保决策逻辑（充血模型），替代原"金额硬编码"规则。
+     * 决策来源二选一（充血模型）：
+     * <ul>
+     *   <li><b>规则引擎路径（dev-505）</b>：命令携带 {@code ruleDecision} 时，直接采用规则集执行结果
+     *       映射出的结论/风险等级/状态/加费/原因（由 application 编排 + 领域结论映射服务产出），
+     *       聚合仅内聚事件落盘与状态回放，不重复规则判断；</li>
+     *   <li><b>内置评分路径（向后兼容）</b>：{@code ruleDecision} 为 null 时，基于已提交的险种专属输入
+     *       评估风险等级并映射结论与状态，内聚核保决策逻辑，替代原"金额硬编码"规则。</li>
+     * </ul>
      * </p>
      */
     @CommandHandler
     public UnderwritingDecidedEvent handle(DecideUnderwritingCommand command) {
         validateDecideCommand(command);
 
-        // 基于险种专属输入评估风险等级（充血模型）
-        int riskScore = this.underwritingInput.aggregateRiskScore();
-        UnderwritingEnum.RiskLevel assessedRiskLevel = this.underwritingInput.assessRiskLevel();
-        // 风险等级映射核保结论
-        UnderwritingEnum.ConclusionType conclusion = deriveConclusion(assessedRiskLevel);
-        // 核保结论映射核保状态
         UnderwritingEnum.UnderwritingStatus oldStatus = this.status;
-        UnderwritingEnum.UnderwritingStatus newStatus = mapConclusionToStatus(conclusion);
-        // 次标准体修改条件承保：产出结构化加费明细，供 billing 计算实收保费
-        // surchargeAcceptable 来自产品核保配置（null 时默认允许加费，与存量行为一致）
-        boolean canSurcharge = command.surchargeAcceptable() == null || command.surchargeAcceptable();
-        ExtraPremium derivedExtraPremium = canSurcharge ? deriveExtraPremium(conclusion, riskScore) : null;
+        int riskScore = this.underwritingInput.aggregateRiskScore();
+        UnderwritingEnum.RiskLevel assessedRiskLevel;
+        UnderwritingEnum.ConclusionType conclusion;
+        UnderwritingEnum.UnderwritingStatus newStatus;
+        ExtraPremium derivedExtraPremium;
+        String reason = null;
+        if (command.ruleDecision() != null) {
+            // 规则引擎结论路径（dev-505）：结论由规则集执行结果映射，聚合不重复评分
+            assessedRiskLevel = command.ruleDecision().riskLevel();
+            conclusion = command.ruleDecision().conclusionType();
+            newStatus = command.ruleDecision().newStatus();
+            derivedExtraPremium = command.ruleDecision().extraPremium();
+            reason = command.ruleDecision().reason();
+        } else {
+            // 内置评分路径（向后兼容）：基于险种专属输入评估风险等级（充血模型）
+            assessedRiskLevel = this.underwritingInput.assessRiskLevel();
+            // 风险等级映射核保结论
+            conclusion = deriveConclusion(assessedRiskLevel);
+            // 核保结论映射核保状态
+            newStatus = mapConclusionToStatus(conclusion);
+            // 次标准体修改条件承保：产出结构化加费明细，供 billing 计算实收保费
+            // surchargeAcceptable 来自产品核保配置（null 时默认允许加费，与存量行为一致）
+            boolean canSurcharge = command.surchargeAcceptable() == null || command.surchargeAcceptable();
+            derivedExtraPremium = canSurcharge ? deriveExtraPremium(conclusion, riskScore) : null;
+        }
 
         UnderwritingDecidedEvent event = new UnderwritingDecidedEvent(command.underwritingId(), this.policyId,
                 assessedRiskLevel, conclusion,
                 command.auditType(), oldStatus, newStatus, riskScore, derivedExtraPremium, LocalDateTime.now(),
-                command.decidedBy(), command.tenantId());
+                command.decidedBy(), command.tenantId(), reason);
         AggregateLifecycle.apply(event);
         return event;
     }
@@ -346,6 +366,13 @@ public class Underwriting extends BaseAggregate {
         this.conclusionType = event.conclusionType();
         this.extraPremium = event.extraPremium();
         this.status = event.newStatus();
+        // dev-505：决策原因按结论状态落库（拒保原因/人工复核意见），与状态变更事件口径一致
+        if (UnderwritingEnum.UnderwritingStatus.DECLINED.equals(event.newStatus())) {
+            this.rejectReason = event.reason();
+        }
+        if (UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW.equals(event.newStatus())) {
+            this.reviewComments = event.reason();
+        }
         this.updateTime = event.decidedAt();
         this.updatedBy = event.decidedBy();
     }

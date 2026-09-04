@@ -4,6 +4,7 @@ import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.titanium.underwriting.application.orchestration.UnderwritingDecisionOrchestrator;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
@@ -14,8 +15,6 @@ import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
-import com.titanium.underwriting.port.ProductUnderwritingConfigPort;
-import com.titanium.underwriting.port.ProductUnderwritingConfigPort.ProductUnderwritingConfig;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,8 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UnderwritingCommandService {
 
-    private final CommandGateway                 commandGateway;
-    private final ProductUnderwritingConfigPort  productUnderwritingConfigPort;
+    private final CommandGateway                  commandGateway;
+    private final UnderwritingDecisionOrchestrator underwritingDecisionOrchestrator;
 
     /**
      * 创建核保
@@ -83,37 +82,31 @@ public class UnderwritingCommandService {
     }
 
     /**
-     * 触发核保决策
+     * 触发核保决策（dev-505：经决策编排器，产品接入规则引擎时走规则集链路，否则内置评分路径）
      * <p>
-     * 基于已提交的结构化输入与核保金额，由核保聚合根内聚决策产出结论
-     * （ACCEPT/MODIFY/REJECT/POSTPONE）与风险等级。若命令未携带 {@code surchargeAcceptable}，
-     * 按默认配置（允许加费）决策。
+     * 编排职责全部下沉 {@link UnderwritingDecisionOrchestrator}：加载聚合 → 取产品核保配置 →
+     * （接入规则引擎时）装配上下文/提取特征/执行规则集/结论映射 → 派发决策命令。
+     * 本门面零业务规则。
      * </p>
      *
      * @param command 核保决策命令
      */
     public UnderwritingDecidedEvent decide(DecideUnderwritingCommand command) {
-        return commandGateway.sendAndWait(command);
+        return underwritingDecisionOrchestrator.decide(command, null);
     }
 
     /**
-     * 触发核保决策（UW-4：产品核保配置化）
+     * 触发核保决策（显式险种编码入口，dev-505：产品核保配置化）
      * <p>
-     * application 编排：先经 {@link ProductUnderwritingConfigPort} 按险种编码读取产品核保配置
-     * （是否接受加费等），据此充实决策命令的 {@code surchargeAcceptable}，再派发给聚合根决策。
-     * 配置计算职责在 product 域配置、underwriting 域决策——用配置替代聚合内硬编码加费策略。
-     * {@code productCode} 为空时走默认配置（允许加费）。
+     * 与 {@link #decide(DecideUnderwritingCommand)} 同一编排链路；{@code productCode} 为空时
+     * 回退聚合携带的险种编码（创建核保时记录）。配置计算职责在 product 域配置、
+     * underwriting 域决策——用配置替代聚合内硬编码加费策略。
      * </p>
      *
      * @param command     核保决策命令（web 层构造，surchargeAcceptable 待充实）
      * @param productCode 险种编码（可为空）
      */
     public UnderwritingDecidedEvent decide(DecideUnderwritingCommand command, String productCode) {
-        ProductUnderwritingConfig config = productUnderwritingConfigPort.fetchConfig(productCode, command.tenantId());
-        log.info("[核保决策] 应用产品核保配置: productCode={}, surchargeAcceptable={}", productCode,
-                config.surchargeAcceptable());
-        DecideUnderwritingCommand enriched = new DecideUnderwritingCommand(command.underwritingId(),
-                command.auditType(), command.decidedBy(), command.tenantId(), config.surchargeAcceptable());
-        return commandGateway.sendAndWait(enriched);
+        return underwritingDecisionOrchestrator.decide(command, productCode);
     }
 }

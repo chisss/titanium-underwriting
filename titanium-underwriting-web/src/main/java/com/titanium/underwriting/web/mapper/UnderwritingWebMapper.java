@@ -38,10 +38,16 @@ public interface UnderwritingWebMapper {
 
     /**
      * 读模型结果 → 展示 VO（Controller 用）
+     * <p>
+     * dev-505 补丁：结构化加费新字段（{@code extraPremium*}）与 QueryResult 同名自动映射；
+     * 旧字段 {@code premiumSurchargeRate}/{@code surchargeReason} 由新字段显式映射兼容前端存量调用方。
+     * </p>
      *
      * @param result 读侧查询结果
      * @return 核保 VO
      */
+    @Mapping(target = "premiumSurchargeRate", source = "extraPremiumRatio")
+    @Mapping(target = "surchargeReason", source = "extraPremiumReason")
     UnderwritingVO toVO(UnderwritingQueryResult result);
 
     /**
@@ -97,6 +103,8 @@ public interface UnderwritingWebMapper {
     @Mapping(target = "policyId", source = "policyId", qualifiedByName = "policyIdValue")
     @Mapping(target = "status", source = "newStatus")
     @Mapping(target = "updatedBy", source = "decidedBy")
+    @Mapping(target = "rejectReason", source = "event", qualifiedByName = "rejectReasonOfDecided")
+    @Mapping(target = "reviewComments", source = "event", qualifiedByName = "reviewCommentsOfDecided")
     @Mapping(target = "extraPremiumType", source = "extraPremium", qualifiedByName = "extraPremiumTypeCode")
     @Mapping(target = "extraPremiumRatio", source = "extraPremium", qualifiedByName = "extraPremiumRatio")
     @Mapping(target = "extraPremiumFixedAmount", source = "extraPremium",
@@ -148,6 +156,25 @@ public interface UnderwritingWebMapper {
             return null;
         }
         return event.reason();
+    }
+
+    /** 决策拒保 → 拒保原因（规则引擎原因），其余状态返回 null。 */
+    @Named("rejectReasonOfDecided")
+    default String rejectReasonOfDecided(UnderwritingDecidedEvent event) {
+        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED
+                || event.newStatus() == UnderwritingEnum.UnderwritingStatus.DECLINED) {
+            return event.reason();
+        }
+        return null;
+    }
+
+    /** 决策转人工 → 审核意见（规则引擎原因），其余状态返回 null。 */
+    @Named("reviewCommentsOfDecided")
+    default String reviewCommentsOfDecided(UnderwritingDecidedEvent event) {
+        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW) {
+            return event.reason();
+        }
+        return null;
     }
 
     /** 加费明细 → 加费类型 code（空安全）。 */

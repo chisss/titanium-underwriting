@@ -110,6 +110,10 @@ public class UnderwritingView extends BaseView {
     @Column(name = "extra_premium_fixed_amount", precision = 18, scale = 2)
     private BigDecimal                          extraPremiumFixedAmount;
 
+    /** 加费原因（dev-505：规则引擎加费结论的原因说明，随事件落库供展示/审计） */
+    @Column(name = "extra_premium_reason", length = 500)
+    private String                              extraPremiumReason;
+
     /** 业务创建人 */
     @Column(name = "created_by", length = 50)
     private String                              createdBy;

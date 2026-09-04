@@ -3,6 +3,9 @@ package com.titanium.underwriting.valueobject;
 import java.io.Serializable;
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import com.titanium.metadata.enums.underwriting.ExtraPremiumType;
 import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
@@ -25,6 +28,7 @@ import com.titanium.underwriting.exception.UnderwritingValidationException;
  * @param durationYears 加费期限（年，临时加费时用；永久加费为 null 表示全期加费）
  * @param reason     加费原因（如既往病史、BMI 异常、职业风险）
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ExtraPremium(ExtraPremiumType type, BigDecimal ratio, BigDecimal fixedAmount, Integer durationYears,
                            String reason)
         implements
@@ -92,9 +96,14 @@ public record ExtraPremium(ExtraPremiumType type, BigDecimal ratio, BigDecimal f
 
     /**
      * 是否为临时加费（有期限，期满后恢复标准保费）。
+     * <p>
+     * 加 {@link JsonIgnore} 防止 Jackson 把布尔访问器误当属性序列化（{@code "temporary"} 字段
+     * 曾导致事件反序列化失败进 DLQ，见 dev-505 验收记录）。
+     * </p>
      *
      * @return 临时加费返回 {@code true}
      */
+    @JsonIgnore
     public boolean isTemporary() {
         return durationYears != null;
     }

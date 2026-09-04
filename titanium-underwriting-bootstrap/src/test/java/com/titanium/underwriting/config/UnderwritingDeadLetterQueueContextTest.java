@@ -29,6 +29,8 @@ import com.titanium.underwriting.UnderwritingApplication;
                 "spring.jpa.hibernate.ddl-auto=create-drop",
                 "spring.liquibase.enabled=false",
                 "spring.cloud.openfeign.client.config.productApi.url=http://localhost",
+                "spring.cloud.openfeign.client.config.ruleEngineApi.url=http://localhost",
+                "spring.cloud.openfeign.client.config.featureCenterApi.url=http://localhost",
                 "axon.axonserver.enabled=false"
         })
 class UnderwritingDeadLetterQueueContextTest {

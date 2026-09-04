@@ -68,15 +68,20 @@ public interface UnderwritingViewMapper {
     /**
      * 核保决策事件 → 读模型（就地更新）：风险等级/结论/方式/评分直映，状态与更新人改名映射；
      * 结构化加费三字段在加费明细为空时经空安全转换返回 null，由 IGNORE 保持既有值。
+     * 拒保/转人工状态由事件级 {@code @Named} 转换把规则引擎原因（dev-505 {@code reason}）写入
+     * 拒保原因/审核意见，其余状态返回 null（IGNORE 保持既有值）。
      */
     @Mapping(target = "underwritingId", ignore = true)
     @Mapping(target = "policyId", ignore = true)
     @Mapping(target = "status", source = "newStatus")
     @Mapping(target = "updatedBy", source = "decidedBy")
+    @Mapping(target = "rejectReason", source = "event", qualifiedByName = "rejectReasonOfDecided")
+    @Mapping(target = "reviewComments", source = "event", qualifiedByName = "reviewCommentsOfDecided")
     @Mapping(target = "extraPremiumType", source = "extraPremium", qualifiedByName = "extraPremiumTypeCode")
     @Mapping(target = "extraPremiumRatio", source = "extraPremium", qualifiedByName = "extraPremiumRatioValue")
     @Mapping(target = "extraPremiumFixedAmount", source = "extraPremium",
             qualifiedByName = "extraPremiumFixedAmountValue")
+    @Mapping(target = "extraPremiumReason", source = "extraPremium", qualifiedByName = "extraPremiumReasonValue")
     void applyDecided(@MappingTarget UnderwritingView view, UnderwritingDecidedEvent event);
 
     /** 核保标识值对象 → 标识串（空安全） */
@@ -123,6 +128,25 @@ public interface UnderwritingViewMapper {
         return event.reason();
     }
 
+    /** 决策拒保 → 拒保原因（规则引擎原因），其余状态返回 null（IGNORE 保持既有值） */
+    @Named("rejectReasonOfDecided")
+    default String rejectReasonOfDecided(UnderwritingDecidedEvent event) {
+        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED
+                || event.newStatus() == UnderwritingEnum.UnderwritingStatus.DECLINED) {
+            return event.reason();
+        }
+        return null;
+    }
+
+    /** 决策转人工 → 审核意见（规则引擎原因），其余状态返回 null（IGNORE 保持既有值） */
+    @Named("reviewCommentsOfDecided")
+    default String reviewCommentsOfDecided(UnderwritingDecidedEvent event) {
+        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW) {
+            return event.reason();
+        }
+        return null;
+    }
+
     /** 加费明细 → 加费类型 code（空安全） */
     @Named("extraPremiumTypeCode")
     default String extraPremiumTypeCode(ExtraPremium extraPremium) {
@@ -142,5 +166,11 @@ public interface UnderwritingViewMapper {
     @Named("extraPremiumFixedAmountValue")
     default BigDecimal extraPremiumFixedAmountValue(ExtraPremium extraPremium) {
         return extraPremium == null ? null : extraPremium.fixedAmount();
+    }
+
+    /** 加费明细 → 加费原因（空安全） */
+    @Named("extraPremiumReasonValue")
+    default String extraPremiumReasonValue(ExtraPremium extraPremium) {
+        return extraPremium == null ? null : extraPremium.reason();
     }
 }

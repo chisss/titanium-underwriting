@@ -16,6 +16,11 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * 次标准体修改条件承保时携带 {@code extraPremium} 加费明细（供 billing 域计算实收保费），
  * 标准体/拒保时为 null（Axon 事件加字段向后兼容既有事件流反序列化，缺字段兜底 null）。
  * </p>
+ * <p>
+ * {@code reason}（dev-505 新增）承载决策原因：内置评分路径为 null；规则引擎路径为规则集给出的
+ * 原因说明（拒保原因/转人工意见/加费原因），聚合回放时落 {@code rejectReason}/{@code reviewComments}。
+ * 旧版本事件 JSON 无此字段，Jackson 反序列化时取 null，向后兼容。
+ * </p>
  *
  * @author wei.sun
  * @since 2026/6/23
@@ -32,6 +37,7 @@ public record UnderwritingDecidedEvent(
         ExtraPremium extraPremium,
         LocalDateTime decidedAt,
         String decidedBy,
-        String tenantId
+        String tenantId,
+        String reason
 ) {
 }

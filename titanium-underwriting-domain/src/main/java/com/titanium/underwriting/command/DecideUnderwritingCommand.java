@@ -3,6 +3,7 @@ package com.titanium.underwriting.command;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.valueobject.RuleUnderwritingDecision;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 
 /**
@@ -18,6 +19,11 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * 即使风险评分在次标准体区间，聚合根也不产出加费（直接拒保或降级处理）；
  * 为 {@code null} 时采用默认行为（允许加费，与原逻辑一致）。
  * </p>
+ * <p>
+ * {@code ruleDecision} 来自规则引擎链路（dev-505）：非 null 时聚合根直接采用规则集执行结果
+ * 映射出的结论与状态（经 {@code RuleConclusionMappingService} 产出），不再走内置评分路径；
+ * 为 null 时回退内置评分（规则集未接入或规则结论 PASS）。
+ * </p>
  *
  * @author wei.sun
  * @since 2026/6/23
@@ -27,6 +33,7 @@ public record DecideUnderwritingCommand(
         UnderwritingEnum.AuditType auditType,
         String decidedBy,
         String tenantId,
-        Boolean surchargeAcceptable
+        Boolean surchargeAcceptable,
+        RuleUnderwritingDecision ruleDecision
 ) {
 }

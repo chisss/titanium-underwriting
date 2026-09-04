@@ -97,9 +97,9 @@ public class UnderwritingWebAssembler {
      */
     public DecideUnderwritingCommand toCommand(String underwritingId, DecideUnderwritingDTO request,
                                                String tenantId) {
-        // surchargeAcceptable 由 application 层依产品核保配置填充（UW-4），web 侧置 null
+        // surchargeAcceptable/ruleDecision 由 application 层编排器依产品核保配置与规则集执行结果填充（dev-505），web 侧置 null
         return new DecideUnderwritingCommand(new UnderwritingId(underwritingId), toAuditType(request.getAuditType()),
-                request.getDecidedBy(), tenantId, null);
+                request.getDecidedBy(), tenantId, null, null);
     }
 
     // ========== 远程 DTO（api 契约）→ 领域命令（Provider 用） ==========
@@ -155,9 +155,9 @@ public class UnderwritingWebAssembler {
      */
     public DecideUnderwritingCommand toCommand(String underwritingId, DecideUnderwritingApiRequest request,
             String tenantId) {
-        // surchargeAcceptable 由 application 层依产品核保配置填充（UW-4），web 侧置 null
+        // surchargeAcceptable/ruleDecision 由 application 层编排器依产品核保配置与规则集执行结果填充（dev-505），web 侧置 null
         return new DecideUnderwritingCommand(new UnderwritingId(underwritingId), toAuditType(request.getAuditType()),
-                request.getDecidedBy(), tenantId, null);
+                request.getDecidedBy(), tenantId, null, null);
     }
 
     // ========== 险种输入装配（分块判空 + 值对象内聚校验） ==========

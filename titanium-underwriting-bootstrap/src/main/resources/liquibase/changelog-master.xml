@@ -6,4 +6,5 @@
     <include file="classpath:liquibase/ddl/axon_event_store_202607091700_weisun_ddl.sql"/>
     <include file="classpath:liquibase/ddl/underwriting_init_202607091700_weisun_ddl.sql"/>
     <include file="classpath:liquibase/ddl/underwriting_view_202607091700_weisun_ddl.sql"/>
+    <include file="classpath:liquibase/ddl/underwriting_view_202609042130_weisun_ddl.sql"/>
 </databaseChangeLog>
