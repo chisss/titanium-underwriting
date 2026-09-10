@@ -130,12 +130,12 @@
 # 环境变量
 export JAVA_HOME=/Users/sunwei/Library/Java/JavaVirtualMachines/corretto-21.0.4/Contents/Home
 
-# 在仓库根目录构建（核保域依赖 metadata 等模块，建议整仓 install）
-cd /Users/sunwei/titanium-project
-mvn -pl titanium-underwriting -am clean install -DskipTests
+# 构建核保域（域目录即 Maven reactor；依赖 metadata 等须已在本地仓库）
+cd /Users/sunwei/titanium-project/titanium-underwriting
+mvn clean install -DskipTests
 
 # 单独启动核保域服务（端口 8083）
-cd titanium-underwriting/titanium-underwriting-bootstrap
+cd titanium-underwriting-bootstrap
 mvn spring-boot:run
 
 # 若与 clause 域端口冲突，临时改端口启动
