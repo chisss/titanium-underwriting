@@ -64,8 +64,9 @@ public class UnderwritingQueryHandler {
 
     @QueryHandler
     public Page<UnderwritingQueryResult> handle(FindUnderwritingsByMultipleConditionsQuery query) {
-        return underwritingQueryService.findByMultipleConditions(query.status(), query.riskLevel(), query.auditType(),
-                query.underwriterId(), query.startTime(), query.endTime(), query.tenantId(), query.pageable());
+        return underwritingQueryService.findByMultipleConditions(query.status(), query.underwritingType(),
+                query.riskLevel(), query.auditType(), query.underwriterId(), query.startTime(), query.endTime(),
+                query.tenantId(), query.pageable());
     }
 
     @QueryHandler

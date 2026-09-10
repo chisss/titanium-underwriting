@@ -12,6 +12,7 @@ import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
  */
 public record FindUnderwritingsByMultipleConditionsQuery(
         UnderwritingEnum.UnderwritingStatus status,
+        UnderwritingEnum.UnderwritingType underwritingType,
         UnderwritingEnum.RiskLevel riskLevel,
         UnderwritingEnum.AuditType auditType,
         String underwriterId,

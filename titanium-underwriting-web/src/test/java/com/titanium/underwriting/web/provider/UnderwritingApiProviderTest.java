@@ -47,7 +47,7 @@ class UnderwritingApiProviderTest {
     void writeApisDoNotReadAsynchronousProjection() {
         CreateUnderwritingCommand createCommand = org.mockito.Mockito.mock(CreateUnderwritingCommand.class);
         when(assembler.toCommand(any(CreateUnderwritingRequest.class), any(String.class))).thenReturn(createCommand);
-        when(commandService.createUnderwriting(createCommand)).thenReturn("UW-001");
+        when(commandService.createUnderwriting(createCommand)).thenReturn(createCommand);
 
         UnderwriteCommand underwriteCommand = org.mockito.Mockito.mock(UnderwriteCommand.class);
         when(assembler.toCommand(any(String.class), any(UnderwriteRequest.class), any(String.class)))

@@ -45,6 +45,10 @@ public class UnderwritingView extends BaseView {
     @Column(name = "underwriting_id", length = 50, nullable = false)
     private String                              underwritingId;
 
+    /** 核保案号（UW 前缀业务号，创建时由应用层发号生成，随创建事件投影） */
+    @Column(name = "case_no", length = 50)
+    private String                              caseNo;
+
     /** 保单ID */
     @Column(name = "policy_id", length = 50, nullable = false)
     private String                              policyId;
@@ -74,6 +78,10 @@ public class UnderwritingView extends BaseView {
     /** 审核意见 */
     @Column(name = "review_comments", length = 2000)
     private String                              reviewComments;
+
+    /** 除外原因（N2：除外承保时规则引擎给出的除外说明） */
+    @Column(name = "exclusion_reason", length = 2000)
+    private String                              exclusionReason;
 
     /** 风险等级 */
     @Enumerated(EnumType.STRING)

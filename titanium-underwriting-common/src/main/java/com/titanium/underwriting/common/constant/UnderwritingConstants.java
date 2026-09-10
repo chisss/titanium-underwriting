@@ -47,12 +47,16 @@ public class UnderwritingConstants {
     public static final String RULE_CONCLUSION_REFER    = "REFER";
     /** 规则引擎决策结论原文：加费承保（G16 新增结论） */
     public static final String RULE_CONCLUSION_SURCHARGE = "SURCHARGE";
+    /** 规则引擎决策结论原文：除外承保（N2 新增结论） */
+    public static final String RULE_CONCLUSION_EXCLUDE  = "EXCLUDE";
     /** 规则动作参数键：加费率（如 0.2 表示加费 20%） */
     public static final String RULE_ACTION_KEY_SURCHARGE_RATE = "surchargeRate";
     /** 规则动作参数键：原因说明 */
     public static final String RULE_ACTION_KEY_REASON = "reason";
     /** 规则引擎加费原因文案（参数：规则集结论原文），加费明细随事件透传 billing 域 */
     public static final String RULE_EXTRA_PREMIUM_REASON_TEMPLATE = "规则引擎核保加费（规则集结论 %s）";
+    /** 规则引擎除外原因文案（参数：规则集结论原文），除外原因随事件落库供展示/审计 */
+    public static final String RULE_EXCLUSION_REASON_TEMPLATE = "规则引擎核保除外（规则集结论 %s）";
 
     /** 规则上下文变量名：核保金额 */
     public static final String RULE_VAR_SUM_INSURED = "sumInsured";

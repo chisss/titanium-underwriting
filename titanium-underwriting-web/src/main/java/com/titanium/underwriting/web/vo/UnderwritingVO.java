@@ -20,6 +20,9 @@ public class UnderwritingVO {
     @Schema(description = "核保ID", example = "UW202401001")
     private String underwritingId;
 
+    @Schema(description = "核保案号（UW 前缀业务号）", example = "UW202609090000001")
+    private String caseNo;
+
     @Schema(description = "保单ID", example = "POL202401001")
     private String policyId;
 
@@ -40,6 +43,9 @@ public class UnderwritingVO {
 
     @Schema(description = "核保评论")
     private String reviewComments;
+
+    @Schema(description = "除外原因（N2：除外承保时规则引擎给出的除外说明）")
+    private String exclusionReason;
 
     // ========== 核保结果信息 ==========
     @Schema(description = "风险等级")

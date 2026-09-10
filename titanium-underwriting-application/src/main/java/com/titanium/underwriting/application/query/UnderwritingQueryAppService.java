@@ -100,15 +100,15 @@ public class UnderwritingQueryAppService {
     }
 
     /**
-     * 多条件组合查询核保
+     * 多条件组合查询核保（状态/类型/风险等级/核保方式/核保员/时间范围）
      */
     public Page<UnderwritingQueryResult> findUnderwritingsByMultipleConditions(
-            UnderwritingEnum.UnderwritingStatus status, UnderwritingEnum.RiskLevel riskLevel,
-            UnderwritingEnum.AuditType auditType, String underwriterId, LocalDateTime startTime, LocalDateTime endTime,
-            Pageable pageable, String tenantId) {
+            UnderwritingEnum.UnderwritingStatus status, UnderwritingEnum.UnderwritingType underwritingType,
+            UnderwritingEnum.RiskLevel riskLevel, UnderwritingEnum.AuditType auditType, String underwriterId,
+            LocalDateTime startTime, LocalDateTime endTime, Pageable pageable, String tenantId) {
         // 分页查询直调读侧服务，绕过 Axon 查询总线（InstanceResponseType 无法匹配 Page 返回）
-        return underwritingQueryService.findByMultipleConditions(status, riskLevel, auditType, underwriterId, startTime,
-                endTime, tenantId, pageable);
+        return underwritingQueryService.findByMultipleConditions(status, underwritingType, riskLevel, auditType,
+                underwriterId, startTime, endTime, tenantId, pageable);
     }
 
     /**

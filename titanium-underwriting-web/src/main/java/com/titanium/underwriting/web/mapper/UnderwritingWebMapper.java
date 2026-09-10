@@ -105,6 +105,7 @@ public interface UnderwritingWebMapper {
     @Mapping(target = "updatedBy", source = "decidedBy")
     @Mapping(target = "rejectReason", source = "event", qualifiedByName = "rejectReasonOfDecided")
     @Mapping(target = "reviewComments", source = "event", qualifiedByName = "reviewCommentsOfDecided")
+    @Mapping(target = "exclusionReason", source = "event", qualifiedByName = "exclusionReasonOfDecided")
     @Mapping(target = "extraPremiumType", source = "extraPremium", qualifiedByName = "extraPremiumTypeCode")
     @Mapping(target = "extraPremiumRatio", source = "extraPremium", qualifiedByName = "extraPremiumRatio")
     @Mapping(target = "extraPremiumFixedAmount", source = "extraPremium",
@@ -172,6 +173,15 @@ public interface UnderwritingWebMapper {
     @Named("reviewCommentsOfDecided")
     default String reviewCommentsOfDecided(UnderwritingDecidedEvent event) {
         if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW) {
+            return event.reason();
+        }
+        return null;
+    }
+
+    /** 决策除外承保 → 除外原因（规则引擎原因），其余状态返回 null。 */
+    @Named("exclusionReasonOfDecided")
+    default String exclusionReasonOfDecided(UnderwritingDecidedEvent event) {
+        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.EXCLUDED) {
             return event.reason();
         }
         return null;

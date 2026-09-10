@@ -49,6 +49,8 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
     private static final String FIELD_TENANT_ID      = "tenantId";
     /** 核保状态字段名 */
     private static final String FIELD_STATUS         = "status";
+    /** 核保类型字段名 */
+    private static final String FIELD_UNDERWRITING_TYPE = "underwritingType";
     /** 风险等级字段名 */
     private static final String FIELD_RISK_LEVEL     = "riskLevel";
     /** 核保方式字段名 */
@@ -104,18 +106,22 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
 
     @Override
     public Page<UnderwritingQueryResult> findByMultipleConditions(UnderwritingEnum.UnderwritingStatus status,
+                                                                  UnderwritingEnum.UnderwritingType underwritingType,
                                                                   UnderwritingEnum.RiskLevel riskLevel,
                                                                   UnderwritingEnum.AuditType auditType,
                                                                   String underwriterId, LocalDateTime startTime,
                                                                   LocalDateTime endTime, String tenantId,
                                                                   Pageable pageable) {
-        log.info("多条件组合查询核保: status={}, riskLevel={}, auditType={}, underwriterId={}, tenantId={}", status, riskLevel,
-                auditType, underwriterId, tenantId);
+        log.info("多条件组合查询核保: status={}, underwritingType={}, riskLevel={}, auditType={}, underwriterId={}, tenantId={}",
+                status, underwritingType, riskLevel, auditType, underwriterId, tenantId);
         Specification<UnderwritingView> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get(FIELD_TENANT_ID), tenantId));
             if (status != null) {
                 predicates.add(cb.equal(root.get(FIELD_STATUS), status));
+            }
+            if (underwritingType != null) {
+                predicates.add(cb.equal(root.get(FIELD_UNDERWRITING_TYPE), underwritingType));
             }
             if (riskLevel != null) {
                 predicates.add(cb.equal(root.get(FIELD_RISK_LEVEL), riskLevel));

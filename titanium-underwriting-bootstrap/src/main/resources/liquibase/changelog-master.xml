@@ -7,4 +7,7 @@
     <include file="classpath:liquibase/ddl/underwriting_init_202607091700_weisun_ddl.sql"/>
     <include file="classpath:liquibase/ddl/underwriting_view_202607091700_weisun_ddl.sql"/>
     <include file="classpath:liquibase/ddl/underwriting_view_202609042130_weisun_ddl.sql"/>
+    <include file="classpath:liquibase/ddl/underwriting_view_202609071500_weisun_ddl.sql"/>
+    <include file="classpath:liquibase/ddl/business_number_sequence_202609091100_weisun_ddl.sql"/>
+    <include file="classpath:liquibase/ddl/underwriting_view_202609091100_weisun_ddl.sql"/>
 </databaseChangeLog>

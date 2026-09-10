@@ -125,6 +125,34 @@ class RuleConclusionMappingServiceTest {
     }
 
     @Test
+    @DisplayName("EXCLUDE → 除外承保（EXCLUDED/SUB_STANDARD/EXCLUDED + 除外原因，N2）")
+    void excludeMapsToExcludedWithReason() {
+        RuleExecutionResult result = new RuleExecutionResult(true, UnderwritingConstants.RULE_CONCLUSION_EXCLUDE,
+                "甲状腺结节除外责任承保", null);
+
+        RuleUnderwritingDecision decision = service.map(result, false);
+
+        assertEquals(UnderwritingEnum.ConclusionType.EXCLUDED, decision.conclusionType());
+        assertEquals(UnderwritingEnum.RiskLevel.SUB_STANDARD, decision.riskLevel());
+        assertEquals(UnderwritingEnum.UnderwritingStatus.EXCLUDED, decision.newStatus());
+        assertNull(decision.extraPremium());
+        assertEquals("甲状腺结节除外责任承保", decision.reason());
+    }
+
+    @Test
+    @DisplayName("EXCLUDE 无原因 → 按结论模板兜底除外原因（红线 20 文案常量化）")
+    void excludeWithoutReasonFallsBackToTemplate() {
+        RuleExecutionResult result = new RuleExecutionResult(true, UnderwritingConstants.RULE_CONCLUSION_EXCLUDE,
+                null, null);
+
+        RuleUnderwritingDecision decision = service.map(result, false);
+
+        assertEquals(UnderwritingEnum.ConclusionType.EXCLUDED, decision.conclusionType());
+        assertEquals(String.format(UnderwritingConstants.RULE_EXCLUSION_REASON_TEMPLATE,
+                UnderwritingConstants.RULE_CONCLUSION_EXCLUDE), decision.reason());
+    }
+
+    @Test
     @DisplayName("未知结论 → 抛 RULE_ENGINE_CONCLUSION_UNSUPPORTED")
     void unknownConclusionThrowsDomainException() {
         RuleExecutionResult result = new RuleExecutionResult(false, "UNKNOWN", null, null);

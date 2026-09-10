@@ -15,6 +15,7 @@ import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
+import com.titanium.underwriting.generator.UnderwritingNoGenerator;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,16 +37,27 @@ public class UnderwritingCommandService {
 
     private final CommandGateway                  commandGateway;
     private final UnderwritingDecisionOrchestrator underwritingDecisionOrchestrator;
+    private final UnderwritingNoGenerator         underwritingNoGenerator;
 
     /**
      * 创建核保
+     * <p>
+     * 上游命令不带案号时，此处调用发号端口生成 UW 前缀核保案号并回填命令，
+     * 保证案号进入创建事件固化（投影重放不重复取号）。返回编号后的命令，
+     * 调用方据此回显核保案号（幂等重放：上游显式携带案号时原样返回）。
+     * </p>
      *
      * @param command 创建核保命令
-     * @return 新建核保ID
+     * @return 编号后的创建核保命令（caseNo 已填充）
      */
-    public String createUnderwriting(CreateUnderwritingCommand command) {
-        commandGateway.sendAndWait(command);
-        return command.underwritingId().value();
+    public CreateUnderwritingCommand createUnderwriting(CreateUnderwritingCommand command) {
+        CreateUnderwritingCommand numbered = command.caseNo() == null
+                ? new CreateUnderwritingCommand(command.underwritingId(), command.policyId(), command.customerId(),
+                        command.amount(), command.underwritingType(), command.createdBy(), command.tenantId(),
+                        command.productCode(), underwritingNoGenerator.generateUnderwritingNo(command.tenantId()))
+                : command;
+        commandGateway.sendAndWait(numbered);
+        return numbered;
     }
 
     /** 派发保全专用核保评估，返回聚合冻结的权威结论。 */

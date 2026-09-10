@@ -4,6 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -16,6 +17,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @SpringBootApplication
 @EnableScheduling
+// 额外扫 com.titanium.common：核保案号发号依赖共享内核 JdbcBusinessNumberGenerator（对齐 customer/clause 域样板）
+@ComponentScan(basePackages = { "com.titanium.underwriting", "com.titanium.common" })
 @EnableFeignClients(basePackages = { "com.titanium.underwriting.infrastructure.client",
         "com.titanium.product.api", "com.titanium.ruleengine.api", "com.titanium.featurecenter.api" })
 // 写侧收敛为纯事件溯源，JPA 仅承载 CQRS 读模型（query.view / query.repository）

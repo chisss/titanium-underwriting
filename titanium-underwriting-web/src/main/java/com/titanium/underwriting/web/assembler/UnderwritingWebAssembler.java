@@ -57,7 +57,7 @@ public class UnderwritingWebAssembler {
         CurrencyEnum currency = resolveCurrency(request.getCurrency());
         return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
                 CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(resolveAmount(request.getAmount()), currency),
-                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode());
+                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode(), null);
     }
 
     /**
@@ -115,7 +115,7 @@ public class UnderwritingWebAssembler {
         CurrencyEnum currency = resolveCurrency(request.getCurrency());
         return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
                 CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(resolveAmount(request.getAmount()), currency),
-                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode());
+                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode(), null);
     }
 
     /**

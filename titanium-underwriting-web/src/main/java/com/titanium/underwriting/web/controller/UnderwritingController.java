@@ -1,7 +1,10 @@
 package com.titanium.underwriting.web.controller;
 
+import java.time.LocalDateTime;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.titanium.metadata.enums.BaseEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.response.UnderwritingStatisticsResponse;
 import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
@@ -71,8 +75,9 @@ public class UnderwritingController {
     public ResponseEntity<UnderwritingVO> createUnderwriting(@RequestBody CreateUnderwritingDTO request,
                                                              @RequestHeader("X-Tenant-ID") String tenantId) {
         CreateUnderwritingCommand command = underwritingWebAssembler.toCommand(request, tenantId);
-        underwritingCommandService.createUnderwriting(command);
-        return new ResponseEntity<>(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(command)),
+        // 返回编号后的命令（caseNo 已由 application 层发号填充），保证创建响应回显核保案号
+        CreateUnderwritingCommand numbered = underwritingCommandService.createUnderwriting(command);
+        return new ResponseEntity<>(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(numbered)),
                 HttpStatus.CREATED);
     }
 
@@ -141,32 +146,41 @@ public class UnderwritingController {
     }
 
     /**
-     * 多条件组合搜索核保（支持状态、风险等级过滤，分页返回）
+     * 多条件组合搜索核保（状态、类型、风险等级与申请时间范围过滤，分页返回）
      * <p>
      * 通过 {@link UnderwritingQueryAppService#findUnderwritingsByMultipleConditions} 派发到读侧；
-     * policyId/customerId 暂不在读模型查询条件中，传入后由调用方在业务层自行处理。
+     * 枚举入参经 {@code fromCode} 空安全解析，非法 code 按不传处理而非抛异常。
      * </p>
      *
-     * @param status    核保状态（可选，如 PENDING/APPROVED/REJECTED）
-     * @param riskLevel 风险等级（可选，如 LOW/MEDIUM/HIGH）
-     * @param page      页码（默认0）
-     * @param size      每页大小（默认10）
-     * @param tenantId  租户ID
+     * @param status          核保状态（可选，如 PENDING/STANDARD/RATED）
+     * @param underwritingType 核保类型（可选，如 NEW_BUSINESS/RENEWAL/ENDORSEMENT/REINSTATEMENT）
+     * @param riskLevel       风险等级（可选，如 LOW/MEDIUM/HIGH）
+     * @param startTime       申请时间下限（可选，ISO-8601，如 2026-09-01T00:00:00）
+     * @param endTime         申请时间上限（可选，ISO-8601）
+     * @param page            页码（默认0）
+     * @param size            每页大小（默认10）
+     * @param tenantId        租户ID
      * @return 核保VO分页结果
      */
     @GetMapping("/search")
     public ResponseEntity<Page<UnderwritingVO>> searchUnderwritings(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String underwritingType,
             @RequestParam(required = false) String riskLevel,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestHeader("X-Tenant-ID") String tenantId) {
         UnderwritingEnum.UnderwritingStatus statusEnum =
-                status != null ? UnderwritingEnum.UnderwritingStatus.valueOf(status) : null;
+                BaseEnum.fromCode(UnderwritingEnum.UnderwritingStatus.class, status);
+        UnderwritingEnum.UnderwritingType typeEnum =
+                UnderwritingEnum.UnderwritingType.fromCode(underwritingType);
         UnderwritingEnum.RiskLevel riskLevelEnum =
-                riskLevel != null ? UnderwritingEnum.RiskLevel.valueOf(riskLevel) : null;
+                UnderwritingEnum.RiskLevel.fromCode(riskLevel);
         Page<UnderwritingQueryResult> results = underwritingQueryAppService.findUnderwritingsByMultipleConditions(
-                statusEnum, riskLevelEnum, null, null, null, null, PageRequest.of(page, size), tenantId);
+                statusEnum, typeEnum, riskLevelEnum, null, null, startTime, endTime,
+                PageRequest.of(page, size), tenantId);
         return ResponseEntity.ok(results.map(underwritingWebMapper::toVO));
     }
 

@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>SURCHARGE → 加费承保（MODIFY/SUB_STANDARD/RATED，加费率取 actionParams.surchargeRate；
  *       未携带加费率时降级转人工复核，避免无法定价却盲目承保）</li>
  *   <li>REJECT → 携带加费率且产品允许加费时加费承保，否则拒保（REJECT/UNINSURABLE/DECLINED）</li>
+ *   <li>EXCLUDE → 除外承保（EXCLUDED/SUB_STANDARD/EXCLUDED，除外原因落库，N2 新增）</li>
  *   <li>未知结论 → 抛 {@link UnderwritingErrorCode#RULE_ENGINE_CONCLUSION_UNSUPPORTED}</li>
  * </ul>
  * </p>
@@ -45,6 +46,7 @@ public class RuleConclusionMappingServiceImpl implements RuleConclusionMappingSe
             case UnderwritingConstants.RULE_CONCLUSION_REFER -> manualReviewDecision(result);
             case UnderwritingConstants.RULE_CONCLUSION_SURCHARGE -> surchargeDecision(result);
             case UnderwritingConstants.RULE_CONCLUSION_REJECT -> rejectDecision(result, surchargeAcceptable);
+            case UnderwritingConstants.RULE_CONCLUSION_EXCLUDE -> exclusionDecision(result);
             default -> throw new DomainException(UnderwritingErrorCode.RULE_ENGINE_CONCLUSION_UNSUPPORTED,
                     String.format("规则引擎决策结论[%s]超出核保域支持范围", result.conclusion()));
         };
@@ -97,6 +99,32 @@ public class RuleConclusionMappingServiceImpl implements RuleConclusionMappingSe
         return new RuleUnderwritingDecision(UnderwritingEnum.ConclusionType.REJECT,
                 UnderwritingEnum.RiskLevel.UNINSURABLE, UnderwritingEnum.UnderwritingStatus.DECLINED, null,
                 result.reason());
+    }
+
+    /**
+     * 除外承保决策（EXCLUDE，N2）：特定风险除外责任后承保，结论 EXCLUDED + 状态 EXCLUDED，
+     * 除外原因随事件落库（供保单条款落地与理赔时责任判定）。
+     *
+     * @param result 规则引擎执行结果
+     * @return 除外承保决策
+     */
+    private RuleUnderwritingDecision exclusionDecision(RuleExecutionResult result) {
+        return new RuleUnderwritingDecision(UnderwritingEnum.ConclusionType.EXCLUDED,
+                UnderwritingEnum.RiskLevel.SUB_STANDARD, UnderwritingEnum.UnderwritingStatus.EXCLUDED, null,
+                exclusionReason(result));
+    }
+
+    /**
+     * 除外原因文案：优先规则引擎给出的原因，缺失时按结论模板兜底（红线 20 文案常量化）。
+     *
+     * @param result 规则引擎执行结果
+     * @return 除外原因
+     */
+    private String exclusionReason(RuleExecutionResult result) {
+        if (result.reason() != null && !result.reason().isBlank()) {
+            return result.reason();
+        }
+        return String.format(UnderwritingConstants.RULE_EXCLUSION_REASON_TEMPLATE, result.conclusion());
     }
 
     /**

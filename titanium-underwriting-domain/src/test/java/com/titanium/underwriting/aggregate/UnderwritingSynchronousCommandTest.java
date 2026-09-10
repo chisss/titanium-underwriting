@@ -2,6 +2,7 @@ package com.titanium.underwriting.aggregate;
 
 import static org.axonframework.test.matchers.Matchers.matches;
 import static org.axonframework.test.matchers.Matchers.messageWithPayload;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.PolicyId;
+import com.titanium.underwriting.valueobject.RuleUnderwritingDecision;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
@@ -92,9 +94,29 @@ class UnderwritingSynchronousCommandTest {
                                 org.hamcrest.Matchers.instanceOf(UnderwritingDecidedEvent.class))));
     }
 
+    @Test
+    void decideWithExcludedRuleDecisionStoresExclusionReason() {
+        UnderwritingInput emptyInput = UnderwritingInput.builder().build();
+        RuleUnderwritingDecision ruleDecision = new RuleUnderwritingDecision(
+                UnderwritingEnum.ConclusionType.EXCLUDED, UnderwritingEnum.RiskLevel.SUB_STANDARD,
+                UnderwritingEnum.UnderwritingStatus.EXCLUDED, null, "甲状腺结节除外责任承保");
+        DecideUnderwritingCommand decide = new DecideUnderwritingCommand(UNDERWRITING_ID,
+                UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true, ruleDecision);
+
+        fixture.given(createdEvent(), new UnderwritingInputSubmittedEvent(UNDERWRITING_ID, emptyInput,
+                LocalDateTime.now(), "system", TENANT_ID))
+                .when(decide)
+                .expectSuccessfulHandlerExecution()
+                .expectResultMessageMatching(messageWithPayload(matches((UnderwritingDecidedEvent event) ->
+                        event.conclusionType() == UnderwritingEnum.ConclusionType.EXCLUDED
+                                && event.newStatus() == UnderwritingEnum.UnderwritingStatus.EXCLUDED)))
+                .expectState(state -> assertEquals("甲状腺结节除外责任承保", state.getExclusionReason()));
+    }
+
     private UnderwritingCreatedEvent createdEvent() {
         return new UnderwritingCreatedEvent(UNDERWRITING_ID, PolicyId.of("POL-001"), CustomerId.of("CUS-001"),
                 UnderwritingAmount.of(BigDecimal.ZERO, CurrencyEnum.CNY),
-                UnderwritingEnum.UnderwritingType.NEW_BUSINESS, LocalDateTime.now(), "system", TENANT_ID, "PRD-001");
+                UnderwritingEnum.UnderwritingType.NEW_BUSINESS, LocalDateTime.now(), "system", TENANT_ID, "PRD-001",
+                "UW202401001");
     }
 }

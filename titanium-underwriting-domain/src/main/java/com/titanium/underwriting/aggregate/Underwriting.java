@@ -77,6 +77,8 @@ public class Underwriting extends BaseAggregate {
     private UnderwritingId                      underwritingId;
     private PolicyId                            policyId;
     private CustomerId                          customerId;
+    /** 核保案号（UW 前缀业务号，创建时由应用层发号生成） */
+    private String                              caseNo;
     private UnderwritingAmount                  amount;
     private UnderwritingEnum.UnderwritingType   underwritingType;
     private UnderwritingEnum.UnderwritingStatus status;
@@ -90,6 +92,8 @@ public class Underwriting extends BaseAggregate {
     private ExtraPremium                        extraPremium;
     private String                              rejectReason;
     private String                              reviewComments;
+    /** 除外原因（N2：除外承保时承载规则引擎给出的除外说明，供保单条款落地与理赔责任判定） */
+    private String                              exclusionReason;
     private String                              createdBy;
     private String                              updatedBy;
     /** 险种编码（UW-4：产品核保配置化，供 application 层按产品查询配置阈值） */
@@ -115,7 +119,7 @@ public class Underwriting extends BaseAggregate {
         // Publish event
         AggregateLifecycle.apply(new UnderwritingCreatedEvent(command.underwritingId(), command.policyId(),
                 command.customerId(), command.amount(), command.underwritingType(), LocalDateTime.now(),
-                command.createdBy(), command.tenantId(), command.productCode()));
+                command.createdBy(), command.tenantId(), command.productCode(), command.caseNo()));
     }
 
     /** 保全核保使用独立输入模型，并以确定性聚合标识保证远程重试幂等。 */
@@ -296,6 +300,7 @@ public class Underwriting extends BaseAggregate {
             case MODIFY -> UnderwritingEnum.UnderwritingStatus.RATED;
             case POSTPONE -> UnderwritingEnum.UnderwritingStatus.POSTPONED;
             case REJECT -> UnderwritingEnum.UnderwritingStatus.DECLINED;
+            case EXCLUDED -> UnderwritingEnum.UnderwritingStatus.EXCLUDED;
         };
     }
 
@@ -329,6 +334,7 @@ public class Underwriting extends BaseAggregate {
         this.underwritingId = event.underwritingId();
         this.policyId = event.policyId();
         this.customerId = event.customerId();
+        this.caseNo = event.caseNo();
         this.amount = event.amount();
         this.underwritingType = event.underwritingType();
         this.status = UnderwritingEnum.UnderwritingStatus.PENDING;
@@ -372,6 +378,10 @@ public class Underwriting extends BaseAggregate {
         }
         if (UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW.equals(event.newStatus())) {
             this.reviewComments = event.reason();
+        }
+        // N2：除外承保时原因落除外原因字段（供保单条款落地与理赔责任判定）
+        if (UnderwritingEnum.UnderwritingStatus.EXCLUDED.equals(event.newStatus())) {
+            this.exclusionReason = event.reason();
         }
         this.updateTime = event.decidedAt();
         this.updatedBy = event.decidedBy();

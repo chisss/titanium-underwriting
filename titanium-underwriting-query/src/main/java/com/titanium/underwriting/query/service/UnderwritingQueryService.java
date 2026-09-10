@@ -48,9 +48,10 @@ public interface UnderwritingQueryService {
                                                                Pageable pageable);
 
     /**
-     * 多条件组合动态查询
+     * 多条件组合动态查询（状态/类型/风险等级/核保方式/核保员/时间范围）
      */
     Page<UnderwritingQueryResult> findByMultipleConditions(UnderwritingEnum.UnderwritingStatus status,
+                                                           UnderwritingEnum.UnderwritingType underwritingType,
                                                            UnderwritingEnum.RiskLevel riskLevel,
                                                            UnderwritingEnum.AuditType auditType, String underwriterId,
                                                            LocalDateTime startTime, LocalDateTime endTime,
