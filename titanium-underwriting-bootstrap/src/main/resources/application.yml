@@ -8,7 +8,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/titanium_underwriting?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8
     username: root
-    password: root
+    password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
   
   # JPA/Hibernate configuration
@@ -18,7 +18,7 @@ spring:
       naming:
         physical-strategy: com.titanium.common.jpa.AxonTablePrefixPhysicalNamingStrategy
       ddl-auto: none  # 强制关闭,交由 liquibase 管理
-    show-sql: true      # Show SQL statements in logs
+    show-sql: false      # Show SQL statements in logs
     # 注: Hibernate 7 已移除 MySQL5InnoDBDialect，方言由 JDBC 连接自动探测，无需显式指定
 
   # Liquibase 数据库版本管理
@@ -83,3 +83,12 @@ logging:
     org.axonframework: INFO          # Axon Framework logging level
     org.springframework.kafka: INFO  # Spring Kafka logging level
     org.hibernate.SQL: DEBUG         # Hibernate SQL logging level
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
