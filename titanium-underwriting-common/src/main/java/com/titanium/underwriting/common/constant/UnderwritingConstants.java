@@ -8,15 +8,14 @@ import java.util.List;
  */
 public class UnderwritingConstants {
     public static final String UNDERWRITING_SERVICE_NAME  = "titanium-underwriting";
-    public static final String UNDERWRITING_TOPIC         = "underwriting-events";
     /** 核保决策完成事件 topic（跨域异步回流 policy 域） */
     public static final String TOPIC_UNDERWRITING_DECIDED = "underwriting-decided";
-    /** 核保创建事件 topic（写侧事件外发） */
-    public static final String TOPIC_UNDERWRITING_CREATED = "underwriting-created";
-    /** 核保状态变更事件 topic（写侧事件外发） */
-    public static final String TOPIC_UNDERWRITING_STATUS_CHANGED = "underwriting-status-changed";
     /** 核保域跨域外发处理组 */
     public static final String KAFKA_PROCESSING_GROUP     = "underwriting-kafka-group";
+    // 原 UNDERWRITING_TOPIC（underwriting-events，主题命名空间常量而非具体主题）与
+    // TOPIC_UNDERWRITING_CREATED / TOPIC_UNDERWRITING_STATUS_CHANGED 三个常量自声明起从无发布点，
+    // 已连同 KafkaConfig 中两个引用它们的 NewTopic Bean 一并删除（m5-903）。
+    // 本域跨域外发只有 underwriting-decided 一个出口（见 UnderwritingKafkaEventPublisher）。
 
     // ========== 落库/跨域业务描述常量（红线 20：禁写死中文字符串，文案渲染推迟到边界层） ==========
 

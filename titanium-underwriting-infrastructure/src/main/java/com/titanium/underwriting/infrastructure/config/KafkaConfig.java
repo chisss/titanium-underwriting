@@ -92,35 +92,16 @@ public class KafkaConfig {
     }
 
     /**
-     * 创建核保创建事件主题
-     * @return 主题对象
-     */
-    @Bean
-    public NewTopic underwritingCreatedTopic() {
-        return TopicBuilder.name(UnderwritingConstants.TOPIC_UNDERWRITING_CREATED)
-                .partitions(3)
-                .replicas(2)
-                .build();
-    }
-
-    /**
-     * 创建核保状态变更事件主题
-     * @return 主题对象
-     */
-    @Bean
-    public NewTopic underwritingStatusChangedTopic() {
-        return TopicBuilder.name(UnderwritingConstants.TOPIC_UNDERWRITING_STATUS_CHANGED)
-                .partitions(3)
-                .replicas(2)
-                .build();
-    }
-
-    /**
-     * 创建核保决策事件主题（policy 域异步回流轨的消费来源）
+     * 创建核保决策事件主题（policy 域异步回流轨的消费来源，本域唯一外发主题）
      * <p>
-     * 与另两个主题同为 3 分区。分区数显式声明是<b>分区有序性保证的前提</b>：本主题的发布端以
-     * {@code policyId} 为分区键（见 {@code UnderwritingKafkaEventPublisher}），若交由 broker
-     * 按默认值自动建主题，分区数不可控，同投保单事件的落分区与保序性也就无从谈起。
+     * 分区数显式声明 3 是<b>分区有序性保证的前提</b>：本主题的发布端以 {@code policyId} 为分区键
+     * （见 {@code UnderwritingKafkaEventPublisher}），若交由 broker 按默认值自动建主题，分区数不可控，
+     * 同投保单事件的落分区与保序性也就无从谈起。
+     * </p>
+     * <p>
+     * 🔴 原 {@code underwritingCreatedTopic} / {@code underwritingStatusChangedTopic} 两个 Bean
+     * （连同其常量 {@code TOPIC_UNDERWRITING_CREATED}/{@code TOPIC_UNDERWRITING_STATUS_CHANGED}）
+     * 建的主题自建起无任何发布点、亦无消费者，属死主题，已删除（m5-903）。
      * </p>
      *
      * @return 主题对象

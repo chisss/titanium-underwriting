@@ -93,7 +93,7 @@
 - `UnderwritingDecidedEvent` — 核保决策完成（含结论/风险等级/加费明细/`policyId`，**跨域异步回流 policy 的载荷**）
 - `MaintenanceUnderwritingAssessedEvent` — 保全核保评估完成
 
-对应 Kafka topic（`KafkaConfig`，均 partitions=3, replicas=2）：`underwriting-created`、`underwriting-status-changed`、`underwriting-decided`。
+对应 Kafka topic（`KafkaConfig`，partitions=3, replicas=2）：**仅 `underwriting-decided` 一个**（本域唯一跨域出口，见 `UnderwritingKafkaEventPublisher`）。原 `underwriting-created`/`underwriting-status-changed` 两个主题与常量已于 m5-903 删除（声明起从无发布点，属死主题）；`UnderwritingCreatedEvent`/`UnderwritingStatusChangedEvent` 只在本域事件流与投影内使用，不外发。
 
 🔴 **`underwriting-decided` 的分区键固定为 `policyId`（m0-713 起）**：消费端 policy 域按**投保单**维度回写聚合，而同一投保单会产生**多次**核保决策（拒保后重投、保全加保的重新核保），只有分区键一致，Kafka 的「同分区内保序」才能兑现为「同投保单内保序」。**不得改回 `underwritingId`，更不得为 null**（null key 轮询分区）；`policyId` 缺失时退化按 `underwritingId` 分区并 `log.warn` 暴露数据异常。该 topic 的 `NewTopic` 显式声明 3 分区是保序前提，不可删除。回归用例：`UnderwritingKafkaEventPublisherTest`。
 

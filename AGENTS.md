@@ -19,7 +19,7 @@
 | 自身对外暴露 | `UnderwritingApi` Feign 接口 | 已定义，但被本服务 Controller 自调用（反模式） |
 | 数据依赖 | customer 域（CustomerId）、clause 域（条款/险种） | 仅持有 ID 值对象，无实际 Feign 调用代码 |
 
-> 🔴 **关键边界事实**：核保域目前是「**孤岛**」——既不监听 policy 域事件，也不向外发布跨域调用。所有 Kafka topic（`underwriting-created`、`underwriting-status-changed`）与事件投影都在域**内部**闭环。涉及跨域链路的任务，必须先确认是否需要新建消费者/Feign 客户端，而非假设已存在。
+> 🔴 **关键边界事实**：核保域的**跨域入口**仍是「**孤岛**」——不监听 policy 域事件，也没有回传 policy 的 Feign 调用。跨域**出口**自 m0-713 起已通：`underwriting-decided` 经 `UnderwritingKafkaEventPublisher` 外发，由 policy 域 `UnderwritingDecidedEventListener` 消费。涉及跨域链路的任务，必须先确认是否需要新建消费者/Feign 客户端，而非假设已存在。
 
 ---
 
@@ -35,10 +35,11 @@
 - 实现类：`UnderwritingApiController`（`@RequestMapping("/underwritings/web")`）
 
 ### 2.2 领域事件（Kafka）
-- 发布：`UnderwritingCreatedEvent` → topic `underwriting-created`
-- 发布：`UnderwritingStatusChangedEvent` → topic `underwriting-status-changed`
-- 消费：仅域内 `UnderwritingProjectionEventHandler`（处理组 `underwriting-query-group`）订阅上述两事件投影读模型
+- 发布（**本域唯一跨域出口**）：`UnderwritingDecidedEvent` → topic `underwriting-decided`（`UnderwritingKafkaEventPublisher`，分区键 `policyId`）
+- 消费：policy 域 `UnderwritingDecidedEventListener`（异步回流轨）
+- 域内投影：`UnderwritingProjectionEventHandler`（处理组 `underwriting-query-group`）订阅域内事件填充读模型
 - 信任包：`spring.json.trusted.packages = com.titanium.underwriting.event`
+- 🔴 `underwriting-created` / `underwriting-status-changed` / `underwriting-events` 三个常量与对应两个 `NewTopic` Bean 已于 m5-903 删除（声明起从无发布点，属死主题）。
 
 ### 2.3 与 policy 域的协作链路（待建设）
 若任务要求打通「投保单提交 → 核保」：
