@@ -114,4 +114,22 @@ public class KafkaConfig {
                 .replicas(2)
                 .build();
     }
+
+    /**
+     * 创建核保决策事件主题（policy 域异步回流轨的消费来源）
+     * <p>
+     * 与另两个主题同为 3 分区。分区数显式声明是<b>分区有序性保证的前提</b>：本主题的发布端以
+     * {@code policyId} 为分区键（见 {@code UnderwritingKafkaEventPublisher}），若交由 broker
+     * 按默认值自动建主题，分区数不可控，同投保单事件的落分区与保序性也就无从谈起。
+     * </p>
+     *
+     * @return 主题对象
+     */
+    @Bean
+    public NewTopic underwritingDecidedTopic() {
+        return TopicBuilder.name(UnderwritingConstants.TOPIC_UNDERWRITING_DECIDED)
+                .partitions(3)
+                .replicas(2)
+                .build();
+    }
 }

@@ -1,7 +1,7 @@
 # Titanium 核保域 (titanium-underwriting) - 模块开发规约
 
 > **版本**: V1.0
-> **最后更新**: 2026-06-23
+> **最后更新**: 2026-09-11
 > **定位**: 保险核心系统 - 核保域微服务
 > **上级规约**: 见根目录 [CLAUDE.md](../CLAUDE.md)，本文档仅补充本模块差异化内容，通用规约不重复
 
@@ -64,28 +64,38 @@
 
 ### 4.1 聚合根 Underwriting
 
-`domain/aggregate/Underwriting.java`，**充血模型**，共 **3 个 `@CommandHandler` + 2 个 `@EventSourcingHandler`**，校验逻辑内聚于聚合根内部私有方法：
+`domain/aggregate/Underwriting.java`，**充血模型**，共 **6 个 `@CommandHandler` + 5 个 `@EventSourcingHandler`**，校验逻辑内聚于聚合根内部私有方法：
 
 | 方法 | 类型 | 说明 |
 |------|------|------|
 | `Underwriting(CreateUnderwritingCommand)` | @CommandHandler(构造) | 校验后 apply `UnderwritingCreatedEvent` |
+| `handle(AssessMaintenanceUnderwritingCommand)` | @CommandHandler | 保全核保路径（带 `maintenanceId` + `policyId`），返回 `MaintenanceUnderwritingAssessedEvent` |
 | `handle(UnderwriteCommand)` | @CommandHandler | 依金额阈值(>100000转REVIEW，否则APPROVED) apply 状态变更事件 |
+| `handle(SubmitUnderwritingInputCommand)` | @CommandHandler | 提交险种专属核保输入，返回 `UnderwritingInputSubmittedEvent` |
+| `handle(DecideUnderwritingCommand)` | @CommandHandler | 出具核保结论，返回 `UnderwritingDecidedEvent` |
 | `handle(ManualReviewCommand)` | @CommandHandler | 转 `MANUAL_REVIEW` 状态 |
-| `on(UnderwritingCreatedEvent)` | @EventSourcingHandler | 重建状态，初始 `PENDING` |
-| `on(UnderwritingStatusChangedEvent)` | @EventSourcingHandler | 重建状态，按新状态记录拒保原因/审核意见 |
+| `on(...)` × 5 | @EventSourcingHandler | 分别重建 `Created`/`StatusChanged`/`InputSubmitted`/`Decided`/`MaintenanceAssessed` 状态 |
 
-### 4.2 命令（3 个，record + `@TargetAggregateIdentifier`）
+### 4.2 命令（6 个，record + `@TargetAggregateIdentifier`）
 
 - `CreateUnderwritingCommand` — 创建核保
+- `AssessMaintenanceUnderwritingCommand` — 保全核保评估
 - `UnderwriteCommand` — 执行核保（自动决策）
+- `SubmitUnderwritingInputCommand` — 提交险种专属核保输入
+- `DecideUnderwritingCommand` — 出具核保结论
 - `ManualReviewCommand` — 人工审核
 
-### 4.3 事件（2 个，record）
+### 4.3 事件（5 个，record）
 
 - `UnderwritingCreatedEvent` — 核保创建
 - `UnderwritingStatusChangedEvent` — 核保状态变更（含 old/new 状态、原因）
+- `UnderwritingInputSubmittedEvent` — 核保输入提交
+- `UnderwritingDecidedEvent` — 核保决策完成（含结论/风险等级/加费明细/`policyId`，**跨域异步回流 policy 的载荷**）
+- `MaintenanceUnderwritingAssessedEvent` — 保全核保评估完成
 
-对应 Kafka topic（`KafkaConfig`）：`underwriting-created`、`underwriting-status-changed`（均 partitions=3, replicas=2）。
+对应 Kafka topic（`KafkaConfig`，均 partitions=3, replicas=2）：`underwriting-created`、`underwriting-status-changed`、`underwriting-decided`。
+
+🔴 **`underwriting-decided` 的分区键固定为 `policyId`（m0-713 起）**：消费端 policy 域按**投保单**维度回写聚合，而同一投保单会产生**多次**核保决策（拒保后重投、保全加保的重新核保），只有分区键一致，Kafka 的「同分区内保序」才能兑现为「同投保单内保序」。**不得改回 `underwritingId`，更不得为 null**（null key 轮询分区）；`policyId` 缺失时退化按 `underwritingId` 分区并 `log.warn` 暴露数据异常。该 topic 的 `NewTopic` 显式声明 3 分区是保序前提，不可删除。回归用例：`UnderwritingKafkaEventPublisherTest`。
 
 ### 4.4 查询（共 11 个 record）
 
@@ -150,7 +160,8 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
 
 > 以下均基于当前真实代码，调整前务必复核：
 
-1. 🔴 **跨域事件链路缺失**：`@EnableFeignClients(basePackages="...infrastructure.client")` 指向的 `client` 包为**空目录**；模块内**没有任何监听 policy 域投保单提交事件**的消费者（无外部事件 `@EventHandler`/`@KafkaListener`）。「投保单提交→自动触发核保」「核保结论回传 policy」目前未打通。
+1. 🔴 **入站跨域链路缺失**：`@EnableFeignClients(basePackages="...infrastructure.client")` 指向的 `client` 包为**空目录**；模块内**没有任何监听 policy 域投保单提交事件**的消费者（无外部事件 `@EventHandler`/`@KafkaListener`）。「投保单提交→自动触发核保」尚未打通。
+   > **出站回流已通**（勿再记为缺失）：`UnderwritingKafkaEventPublisher`（`@ProcessingGroup("underwriting-kafka-group")`，`subscribing` 模式）订阅 `UnderwritingDecidedEvent` 外发 `underwriting-decided`，policy 域 `UnderwritingDecidedEventListener` 已订阅并按 `policyId` 回写投保单聚合。分区键与保序约束见 §4.3（m0-713）。
 2. 🔴 **Feign 自调用反模式**：唯一 `@FeignClient` 是 `UnderwritingApi`（name=`titanium-underwriting-service`，指向自己），且不在被扫描的 `client` 包内；`UnderwritingController` 注入 `UnderwritingApi` 调用本服务，属绕一圈自调用，应直接调 Application 层。
 3. 🔴 **端口冲突**：8083 与 clause 域重复，见第二节。
 4. 🔴 **未用 Liquibase**：`application.yml` 用 `ddl-auto: update` 自动建表，违背根规约「SQL 用 Liquibase 维护」；且 `hibernate.dialect` 配成 `MySQL5InnoDBDialect`（偏旧）。
@@ -160,6 +171,10 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
 8. ⚠️ **重复决策逻辑**：聚合根 `determineUnderwritingStatus`（金额阈值）与 `UnderwritingDomainService.determineUnderwritingStatus`（风险等级 switch）两套并存且口径不一致，需统一。
 9. ⚠️ **TenantContext 重复**：`web` 与 `infrastructure` 各有一份 `TenantContext`，租户上下文实现分散。
 10. ⚠️ **README.md 过期**：旧 README 写 Spring Boot 3.2 / Axon 4.1 / PostgreSQL，与实际 SB4.0.1 / Axon4.10 / MySQL 不符，调整时一并更新。
+
+> 已修复缺口（m0-713，2026-09-11）：
+> - ✅ **`underwriting-decided` 分区有序性**：发布器原以 `underwritingId` 作分区键、为空时发 null key。但消费端 policy 域按**投保单**维度回写，同一投保单会有多次决策（拒保后重投、保全加保重新核保），用核保单作键会把它们散到不同分区，Kafka 的「同分区内保序」落空，后到的旧结论可能覆盖新结论。
+>   修复：分区键改为 `policyId`（缺失时退化 `underwritingId` 并 `log.warn`）；`KafkaConfig` 补 `underwritingDecidedTopic`（3 分区，原缺失、依赖 broker 自动建主题则分区数不可控）。新增 `UnderwritingKafkaEventPublisherTest` 3 用例锁死该语义。
 
 ---
 
