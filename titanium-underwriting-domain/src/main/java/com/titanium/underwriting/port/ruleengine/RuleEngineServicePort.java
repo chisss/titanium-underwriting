@@ -20,7 +20,9 @@ public interface RuleEngineServicePort {
      * @param tenantId    租户ID
      * @param ruleSetCode 规则集编码（产品核保配置的 ruleSetCode）
      * @param context     规则变量上下文（核保输入 + 特征中心提取的特征值）
+     * @param businessId  关联业务单号（核保单ID，落规则引擎执行审计供按业务单反查；可空）
      * @return 规则执行结果（决策结论、原因与动作参数）
      */
-    RuleExecutionResult executeRuleSet(String tenantId, String ruleSetCode, Map<String, Object> context);
+    RuleExecutionResult executeRuleSet(String tenantId, String ruleSetCode, Map<String, Object> context,
+                                       String businessId);
 }

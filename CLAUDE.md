@@ -183,6 +183,14 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
 >   **测试**：metadata 新增 `MaintenanceUnderwritingConclusionTest` 7 例（跨域契约 `code == name()`、数字码唯一且不重排、未知码显式失败、`completed`/`accepted`/`toUnderwritingStatus` 逐项断言、常量计数防新增漏判）。
 >   **门禁**：metadata 41 例 / maintenance 554 例 / underwriting 124 例，三域 `mvn -B clean install` 全绿。
 
+### 已修复缺口（m8-1104，2026-09-14）
+
+- ✅ **规则引擎执行审计的业务上下文透传**：本域调规则引擎时**不携带业务单号**，导致规则引擎侧 `t_rule_execution_log` 的 `business_id`/`business_type` 恒为空，**无法按核保单反查「某次核保用了哪条规则集、命中了什么」**。
+  修复：`RuleEngineServicePort.executeRuleSet` 末参追加 `businessId`，`UnderwritingDecisionOrchestrator` 传 `command.underwritingId().value()`；`RuleEngineServiceAdapter` 以常量 `BUSINESS_TYPE = BusinessDomainType.UNDERWRITING.getCode()` 上报业务域类型。
+  🔴 **契约走可选请求头** `X-Business-Id`/`X-Business-Type`（与既有 `X-Tenant-Id` 同构），**不进请求体**——规则执行入口的 body 是裸 `Map<String,Object>` 规则变量，塞业务字段会污染规则变量命名空间。
+  🔴 `businessType` 是**端口固有属性**（由 adapter 常量决定，非调用方逐次传入）；`businessId` 一律**追加为最后一个参数**以最小化既有参数语义扰动。
+  回归：`RuleEngineServiceAdapterTest` 新增 `missingBusinessIdStillReportsBusinessDomainType`（业务单号缺失不阻断执行，域类型仍上报）。
+
 ---
 
 **维护提示**：每次改动聚合根/命令/事件后，请同步检查投影器、QueryHandler、Mapper 与测试类，并参考 [AGENTS.md](./AGENTS.md) 的协作检查清单。

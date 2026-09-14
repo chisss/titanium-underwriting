@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.titanium.common.exception.BusinessException;
+import com.titanium.metadata.enums.BusinessDomainType;
 import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.metadata.response.ApiResponse;
 import com.titanium.ruleengine.api.RuleEngineApi;
@@ -36,6 +38,14 @@ import feign.FeignException;
  */
 class RuleEngineServiceAdapterTest {
 
+    private static final String TENANT_ID = "TENANT-001";
+
+    /** 调用方业务单号（核保单ID） */
+    private static final String BUSINESS_ID = "UW-2026-0001";
+
+    /** 适配器按端口归属固定上报的业务域类型 */
+    private static final String BUSINESS_TYPE = BusinessDomainType.UNDERWRITING.getCode();
+
     private final RuleEngineApi api = mock(RuleEngineApi.class);
 
     private final RuleEngineServiceAdapter adapter = new RuleEngineServiceAdapter(api);
@@ -43,30 +53,30 @@ class RuleEngineServiceAdapterTest {
     @Test
     @DisplayName("PASS 结论 → 放行结果，原因与动作参数透传")
     void passDecisionMapsToPassedResult() {
-        when(api.execute(eq("UW_STD_001"), anyMap(), anyString()))
+        when(api.execute(eq("UW_STD_001"), anyMap(), anyString(), anyString(), anyString()))
                 .thenReturn(ApiResponse.success(RuleExecutionResultResponse.builder()
                         .decision(RuleDecision.PASS)
                         .outputs(Map.of("reason", "标准体规则命中"))
                         .build()));
 
-        RuleExecutionResult result = adapter.executeRuleSet("TENANT-001", "UW_STD_001", Map.of("age", 30));
+        RuleExecutionResult result = adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of("age", 30), BUSINESS_ID);
 
         assertTrue(result.passed());
         assertEquals("PASS", result.conclusion());
         assertEquals("标准体规则命中", result.reason());
-        verify(api).execute("UW_STD_001", Map.of("age", 30), "TENANT-001");
+        verify(api).execute("UW_STD_001", Map.of("age", 30), TENANT_ID, BUSINESS_ID, BUSINESS_TYPE);
     }
 
     @Test
     @DisplayName("SURCHARGE 结论 → 放行（加费语义由结论映射区分）")
     void surchargeDecisionMapsToPassedResult() {
-        when(api.execute(anyString(), anyMap(), anyString()))
+        when(api.execute(anyString(), anyMap(), anyString(), anyString(), anyString()))
                 .thenReturn(ApiResponse.success(RuleExecutionResultResponse.builder()
                         .decision(RuleDecision.SURCHARGE)
                         .outputs(Map.of("surchargeRate", 0.2))
                         .build()));
 
-        RuleExecutionResult result = adapter.executeRuleSet("TENANT-001", "UW_STD_001", Map.of());
+        RuleExecutionResult result = adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID);
 
         assertTrue(result.passed());
         assertEquals("SURCHARGE", result.conclusion());
@@ -76,12 +86,12 @@ class RuleEngineServiceAdapterTest {
     @Test
     @DisplayName("业务失败响应 → 抛 RULE_ENGINE_EXECUTION_FAILED")
     void businessFailureResponseThrowsExecutionFailed() {
-        when(api.execute(anyString(), anyMap(), anyString()))
+        when(api.execute(anyString(), anyMap(), anyString(), anyString(), anyString()))
                 .thenReturn(ApiResponse.error(com.titanium.metadata.errorcode.RuleEngineErrorCode.RULE_EXECUTE_FAILED,
                         "规则执行失败"));
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> adapter.executeRuleSet("TENANT-001", "UW_STD_001", Map.of()));
+                () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
         assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCode());
     }
@@ -89,11 +99,11 @@ class RuleEngineServiceAdapterTest {
     @Test
     @DisplayName("响应缺决策结论 → 抛 RULE_ENGINE_EXECUTION_FAILED")
     void responseWithoutDecisionThrowsExecutionFailed() {
-        when(api.execute(anyString(), anyMap(), anyString()))
+        when(api.execute(anyString(), anyMap(), anyString(), anyString(), anyString()))
                 .thenReturn(ApiResponse.success(RuleExecutionResultResponse.builder().build()));
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> adapter.executeRuleSet("TENANT-001", "UW_STD_001", Map.of()));
+                () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
         assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCode());
     }
@@ -105,10 +115,10 @@ class RuleEngineServiceAdapterTest {
         when(feignException.getMessage()).thenReturn("变量缺失");
         when(feignException.contentUTF8())
                 .thenReturn("{\"code\":\"66000012\",\"message\":\"规则条件引用的输入变量未提供: bmiLevel\"}");
-        when(api.execute(anyString(), anyMap(), anyString())).thenThrow(feignException);
+        when(api.execute(anyString(), anyMap(), anyString(), anyString(), anyString())).thenThrow(feignException);
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> adapter.executeRuleSet("TENANT-001", "UW_STD_001", Map.of()));
+                () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
         assertEquals(UnderwritingErrorCode.RULE_CONTEXT_VARIABLE_MISSING.getCode(), ex.getErrorCode());
         assertTrue(ex.getMessage().contains("bmiLevel"));
@@ -120,10 +130,10 @@ class RuleEngineServiceAdapterTest {
         FeignException feignException = mock(FeignException.class);
         when(feignException.getMessage()).thenReturn("EL1008E: Property or field 'bmiLevel' cannot be found");
         when(feignException.contentUTF8()).thenReturn(null);
-        when(api.execute(anyString(), anyMap(), anyString())).thenThrow(feignException);
+        when(api.execute(anyString(), anyMap(), anyString(), anyString(), anyString())).thenThrow(feignException);
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> adapter.executeRuleSet("TENANT-001", "UW_STD_001", Map.of()));
+                () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
         assertEquals(UnderwritingErrorCode.RULE_CONTEXT_VARIABLE_MISSING.getCode(), ex.getErrorCode());
     }
@@ -135,10 +145,10 @@ class RuleEngineServiceAdapterTest {
         when(feignException.getMessage()).thenReturn("服务不可用");
         when(feignException.contentUTF8())
                 .thenReturn("{\"code\":\"66000001\",\"message\":\"规则集不存在\"}");
-        when(api.execute(anyString(), anyMap(), anyString())).thenThrow(feignException);
+        when(api.execute(anyString(), anyMap(), anyString(), anyString(), anyString())).thenThrow(feignException);
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> adapter.executeRuleSet("TENANT-001", "UW_STD_001", Map.of()));
+                () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
         assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCode());
     }
@@ -146,12 +156,27 @@ class RuleEngineServiceAdapterTest {
     @Test
     @DisplayName("响应为 null → 抛 RULE_ENGINE_EXECUTION_FAILED")
     void nullResponseThrowsExecutionFailed() {
-        when(api.execute(anyString(), anyMap(), anyString())).thenReturn(null);
+        when(api.execute(anyString(), anyMap(), anyString(), anyString(), anyString())).thenReturn(null);
 
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> adapter.executeRuleSet("TENANT-001", "UW_STD_001", Map.of()));
+                () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
         assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCode());
         assertFalse(ex.getMessage().isBlank());
+    }
+
+    @Test
+    @DisplayName("未携带业务单号 → 执行不受影响，业务域类型仍上报")
+    void missingBusinessIdStillReportsBusinessDomainType() {
+        when(api.execute(anyString(), anyMap(), anyString(), isNull(), anyString()))
+                .thenReturn(ApiResponse.success(RuleExecutionResultResponse.builder()
+                        .decision(RuleDecision.PASS)
+                        .outputs(Map.of("reason", "标准体规则命中"))
+                        .build()));
+
+        RuleExecutionResult result = adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), null);
+
+        assertTrue(result.passed());
+        verify(api).execute("UW_STD_001", Map.of(), TENANT_ID, null, BUSINESS_TYPE);
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import com.alibaba.fastjson2.JSONObject;
 
 import com.titanium.common.exception.BusinessException;
+import com.titanium.metadata.enums.BusinessDomainType;
 import com.titanium.metadata.errorcode.RuleEngineErrorCode;
 import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.metadata.response.ApiResponse;
@@ -39,14 +40,22 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RuleEngineServiceAdapter implements RuleEngineServicePort {
 
+    /**
+     * 上报规则引擎的业务域类型：本适配器由核保域驱动，其发起的每一次规则执行在业务上都归属核保域，
+     * 属端口的固有属性而非调用方入参，故在此常量承载，不污染 {@link RuleEngineServicePort} 签名。
+     */
+    private static final String BUSINESS_TYPE = BusinessDomainType.UNDERWRITING.getCode();
+
     private final RuleEngineApi ruleEngineApi;
 
     @Override
-    public RuleExecutionResult executeRuleSet(String tenantId, String ruleSetCode, Map<String, Object> context) {
-        log.info("[规则引擎] 执行规则集: ruleSetCode={}, tenantId={}, variables={}", ruleSetCode, tenantId,
-                context != null ? context.keySet() : null);
+    public RuleExecutionResult executeRuleSet(String tenantId, String ruleSetCode, Map<String, Object> context,
+                                              String businessId) {
+        log.info("[规则引擎] 执行规则集: ruleSetCode={}, tenantId={}, businessId={}, variables={}", ruleSetCode,
+                tenantId, businessId, context != null ? context.keySet() : null);
         try {
-            ApiResponse<RuleExecutionResultResponse> response = ruleEngineApi.execute(ruleSetCode, context, tenantId);
+            ApiResponse<RuleExecutionResultResponse> response = ruleEngineApi.execute(ruleSetCode, context, tenantId,
+                    businessId, BUSINESS_TYPE);
             if (response == null || !response.isSuccess() || response.getData() == null) {
                 String message = response != null ? response.getMessage() : "规则引擎无响应";
                 log.error("[规则引擎] 规则集执行失败: ruleSetCode={}, error={}", ruleSetCode, message);

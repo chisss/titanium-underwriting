@@ -107,9 +107,9 @@ public class UnderwritingDecisionOrchestrator {
         // 2. 特征中心提取派生特征并入上下文（失败跳过，G13 变量预检兜底）
         context.putAll(featureCenterPort.extractFeatures(command.tenantId(),
                 UnderwritingConstants.UNDERWRITING_FEATURE_CODES, context));
-        // 3. 执行规则集（首个命中即生效）
+        // 3. 执行规则集（首个命中即生效）；透传核保单号作业务上下文，供规则引擎执行审计按单反查
         RuleExecutionResult result = ruleEngineServicePort.executeRuleSet(command.tenantId(), config.ruleSetCode(),
-                context);
+                context, command.underwritingId().value());
         // 4. 结论映射（纯领域服务）：PASS 返回 null 回退内置评分
         return ruleConclusionMappingService.map(result, config.surchargeAcceptable());
     }
