@@ -2,6 +2,7 @@ package com.titanium.underwriting.common.constant;
 
 import java.util.List;
 
+import com.titanium.metadata.topic.CrossDomainTopics;
 
 /**
  * Underwriting Service Constants
@@ -9,7 +10,7 @@ import java.util.List;
 public class UnderwritingConstants {
     public static final String UNDERWRITING_SERVICE_NAME  = "titanium-underwriting";
     /** 核保决策完成事件 topic（跨域异步回流 policy 域） */
-    public static final String TOPIC_UNDERWRITING_DECIDED = "underwriting-decided";
+    public static final String TOPIC_UNDERWRITING_DECIDED = CrossDomainTopics.UNDERWRITING_DECIDED;
     /** 核保域跨域外发处理组 */
     public static final String KAFKA_PROCESSING_GROUP     = "underwriting-kafka-group";
     // 原 UNDERWRITING_TOPIC（underwriting-events，主题命名空间常量而非具体主题）与
