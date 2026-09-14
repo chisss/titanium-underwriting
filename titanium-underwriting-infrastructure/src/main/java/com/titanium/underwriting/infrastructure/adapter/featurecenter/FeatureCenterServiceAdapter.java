@@ -7,7 +7,7 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 import com.titanium.featurecenter.api.FeatureCenterApi;
-import com.titanium.featurecenter.api.request.FeatureExtractRequest;
+import com.titanium.featurecenter.api.request.resolution.FeatureExtractRequest;
 import com.titanium.featurecenter.api.response.FeatureValueResponse;
 import com.titanium.metadata.response.ApiResponse;
 import com.titanium.underwriting.port.featurecenter.FeatureCenterPort;
