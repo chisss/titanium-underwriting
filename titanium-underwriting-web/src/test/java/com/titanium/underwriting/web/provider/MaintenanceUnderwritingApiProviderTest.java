@@ -19,10 +19,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
-import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.web.mapper.MaintenanceUnderwritingWebMapper;
 

@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.titanium.common.jpa.BaseView;
+import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

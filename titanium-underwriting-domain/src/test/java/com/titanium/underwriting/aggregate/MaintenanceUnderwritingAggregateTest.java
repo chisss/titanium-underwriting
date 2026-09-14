@@ -10,11 +10,11 @@ import org.axonframework.test.aggregate.FixtureConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 import com.titanium.underwriting.valueobject.MaintenanceRiskFieldChange;
-import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 
 class MaintenanceUnderwritingAggregateTest {

@@ -15,6 +15,7 @@ import org.axonframework.modelling.command.CreationPolicy;
 import org.axonframework.spring.stereotype.Aggregate;
 
 import com.titanium.common.domain.BaseAggregate;
+import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
@@ -36,7 +37,6 @@ import com.titanium.underwriting.service.MaintenanceUnderwritingCommandValidator
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.ExtraPremium;
 import com.titanium.underwriting.valueobject.MaintenanceRiskFieldChange;
-import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;

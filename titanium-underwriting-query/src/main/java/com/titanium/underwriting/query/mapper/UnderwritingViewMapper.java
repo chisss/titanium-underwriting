@@ -12,6 +12,7 @@ import org.mapstruct.ReportingPolicy;
 
 import com.alibaba.fastjson2.JSON;
 
+import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
@@ -21,7 +22,6 @@ import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.view.UnderwritingView;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.ExtraPremium;
-import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;

@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.common.exception.UnderwritingException;
 import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
@@ -24,7 +25,6 @@ import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.mapper.UnderwritingViewMapper;
 import com.titanium.underwriting.query.repository.UnderwritingViewRepository;
 import com.titanium.underwriting.query.view.UnderwritingView;
-import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
 

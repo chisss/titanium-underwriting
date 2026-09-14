@@ -176,6 +176,13 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
 > - ✅ **`underwriting-decided` 分区有序性**：发布器原以 `underwritingId` 作分区键、为空时发 null key。但消费端 policy 域按**投保单**维度回写，同一投保单会有多次决策（拒保后重投、保全加保重新核保），用核保单作键会把它们散到不同分区，Kafka 的「同分区内保序」落空，后到的旧结论可能覆盖新结论。
 >   修复：分区键改为 `policyId`（缺失时退化 `underwritingId` 并 `log.warn`）；`KafkaConfig` 补 `underwritingDecidedTopic`（3 分区，原缺失、依赖 broker 自动建主题则分区数不可控）。新增 `UnderwritingKafkaEventPublisherTest` 3 用例锁死该语义。
 
+> 已修复缺口（m8-1103，2026-09-14）：
+> - ✅ **保全核保结论枚举跨域重复定义**：`MaintenanceUnderwritingConclusion` 原在**本域 `domain/valueobject`** 与**保全域 `common/enums/workflow`** 各存一份同名枚举，常量虽同而口径方法分散（本域版带 `toUnderwritingStatus()`，保全域版带 `BaseEnum` 四属性与 `accepted()`），任一侧新增结论即漏改；且落在 `valueobject` 包**直接违反根规约 §3.4.2**「枚举只允许存在于 metadata 与 `{domain}-common` 两处」。
+>   修复：按「跨域共享枚举入 metadata」上提至 `com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion`（单一定义，合并两侧全部口径：四属性 + `completed()` + `accepted()` + `toUnderwritingStatus()` + `fromCode()`），两域 26 个引用点改 import、删除两处本地定义。
+>   🔴 **跨域兼容性判据**：Feign 契约 `MaintenanceUnderwritingResponse.conclusion` 是 **String**（`MaintenanceUnderwritingWebMapper.conclusionName(...)` 取 `name()`），两版常量名逐字相同 ⇒ 收敛**不改变跨域传输形态**，存量无兼容问题。反之，枚举的常量名即跨域契约，**一经发布不可改名**。
+>   **测试**：metadata 新增 `MaintenanceUnderwritingConclusionTest` 7 例（跨域契约 `code == name()`、数字码唯一且不重排、未知码显式失败、`completed`/`accepted`/`toUnderwritingStatus` 逐项断言、常量计数防新增漏判）。
+>   **门禁**：metadata 41 例 / maintenance 554 例 / underwriting 124 例，三域 `mvn -B clean install` 全绿。
+
 ---
 
 **维护提示**：每次改动聚合根/命令/事件后，请同步检查投影器、QueryHandler、Mapper 与测试类，并参考 [AGENTS.md](./AGENTS.md) 的协作检查清单。

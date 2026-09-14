@@ -11,11 +11,11 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.query.view.UnderwritingView;
-import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.OccupationInfo;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
