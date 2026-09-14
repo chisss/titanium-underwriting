@@ -69,9 +69,9 @@ class UnderwritingArchitectureTest extends AbstractArchitectureGuardTest {
      * 执行四步主流程）与 {@code request.maintenance}（保全核保评估），顶层零类。
      * </p>
      * <p>
-     * 🔴 <b>跨域引用面</b>：本包是 Feign 契约，被 policy（{@code UnderwritingServiceAdapter} /
-     * {@code SyncUnderwritingDecisionAdapter} 及其测试）与 maintenance（{@code MaintenanceUnderwritingAdapter}
-     * 及其测试）import，须先 install 本域 api 再编译下游。
+     * 🔴 <b>跨域引用面</b>：本包是 Feign 契约，被 policy（{@code SyncUnderwritingDecisionAdapter}
+     * 及其测试）与 maintenance（{@code MaintenanceUnderwritingAdapter} 及其测试）import，
+     * 须先 install 本域 api 再编译下游。
      * </p>
      */
     @Test
@@ -87,7 +87,7 @@ class UnderwritingArchitectureTest extends AbstractArchitectureGuardTest {
      * {@code response.maintenance}（保全核保结果），顶层零类。
      * </p>
      * <p>
-     * 🔴 <b>跨域引用面</b>：被 policy（两个 Adapter 及测试）、maintenance（{@code MaintenanceUnderwritingAdapter}）、
+     * 🔴 <b>跨域引用面</b>：被 policy（{@code SyncUnderwritingDecisionAdapter} 及测试）、maintenance（{@code MaintenanceUnderwritingAdapter}）、
      * admin（{@code UnderwritingServiceClient} / {@code BusinessProxyService} / {@code DashboardController}）
      * 三域 import。
      * </p>
