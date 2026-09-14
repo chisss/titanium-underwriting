@@ -30,6 +30,11 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092
     producer:
+      # ⚠️ 本段不被 Spring 消费：本域依赖裸 spring-kafka（非 spring-boot-starter-kafka），
+      #    KafkaProperties 所在的 spring-boot-kafka 自动配置模块不在类路径，Boot 的 Kafka 自动配置不激活，
+      #    此处的 serializer 一律不生效（value-serializer 写的 JsonSerializer 更与实际不符）。
+      #    生产者参数的唯一事实来源是 infrastructure 的 KafkaConfig#producerFactory
+      #    （已显式置 StringSerializer / acks=all / enable.idempotence / retries）。
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
@@ -71,10 +76,25 @@ axon:
             size: 2048
         batchSize: 10
       # 跨域外发处理组：核保决策事件推送 Kafka（异步回流 policy）
+      # 🔴 tracking + DLQ（m6-909）：原为 subscribing——事件到达即同步发布、不经事件存储，看似更简单，
+      #    但只有流式处理器（tracking/pooled-streaming）才支持 SequencedDeadLetterQueue，
+      #    subscribing 拿不到 DLQ，发布失败即永久丢失（核保结论不回传，投保单永远停在待核保）。
+      #    首启位点由顶层 titanium.axon.outbound-relay.groups 登记为事件流末端，避免重放全量历史核保事件。
       underwriting-kafka-group:
-        mode: subscribing
+        mode: tracking
+        dlq:
+          enabled: true
+          max-size: 1000
+        batchSize: 1
   commandhandling:
     pool-size: 10  # Number of threads for command handling
+
+# 跨域出站中继：声明哪些处理组按「事件存储即 Outbox」形态装配为 tracking + DLQ，
+# 并令其首启位点取事件流末端（避免首次部署重放全量历史核保事件）。
+titanium:
+  axon:
+    outbound-relay:
+      groups: [underwriting-kafka-group]
 
 # Logging configuration
 logging:
