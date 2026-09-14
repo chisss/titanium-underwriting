@@ -1,7 +1,7 @@
 # Titanium 核保域 (titanium-underwriting) - 模块开发规约
 
-> **版本**: V1.1
-> **最后更新**: 2026-09-14（实读纠偏：全文结论逐条对照代码复核并附『文件:行号』证据，见第七节）
+> **版本**: V1.2
+> **最后更新**: 2026-09-14（m10-1302 入站链路定性纠偏：由「缺失」正名为「policy 主动发起的同步 Feign、本域为服务端」；判据=定性入站链路必须从调用方侧核验，见第七节）
 > **定位**: 保险核心系统 - 核保域微服务
 > **上级规约**: 见根目录 [CLAUDE.md](../CLAUDE.md)，本文档仅补充本模块差异化内容，通用规约不重复
 
@@ -21,9 +21,11 @@
 - **人工核保**：金额或风险超阈值时转 `MANUAL_REVIEW`，由核保员处理
 - **核保查询**：面向核保员工作台的多维度查询（按状态、风险等级、核保员、客户历史、统计等）
 
-> **跨域链路现状（实读核对，2026-09-14）**：
-> - ✅ **出站「核保结论回传 policy 域」已通**：`UnderwritingKafkaEventPublisher.java:51,57-58,70`（处理组 `underwriting-kafka-group`，订阅 `UnderwritingDecidedEvent` 后按 `policyId` 分区键发 `underwriting-decided`），policy 侧由 `titanium-policy-infrastructure/.../messaging/UnderwritingDecidedEventListener.java:35,47` 的 `@KafkaListener` 消费并按投保单回写聚合。
-> - 🔴 **入站「监听 policy 域投保单提交事件」仍缺失**：本域 main 无任何 `@KafkaListener`（唯一的 `@EventHandler` 是上述出站发布器），`infrastructure/client` 为空目录。详见第七节在逃缺陷 1。
+> **跨域链路现状（实读核对，2026-09-14；入站定性已于 m10-1302 纠偏）**：
+> - ✅ **出站「核保结论回传 policy 域」走 Kafka**：`UnderwritingKafkaEventPublisher.java:51,57-58,70`（处理组 `underwriting-kafka-group`，订阅 `UnderwritingDecidedEvent` 后按 `policyId` 分区键发 `underwriting-decided`），policy 侧由 `titanium-policy-infrastructure/.../messaging/UnderwritingDecidedEventListener.java:35,47` 的 `@KafkaListener` 消费并按投保单回写聚合。
+> - ✅ **入站「投保单提交 → 触发核保」走同步 Feign（由 policy 主动调用，本域是服务端）**：policy 域 `IssuanceSaga` 在 `InsuranceSubmittedForUnderwritingEvent` 到达时发起——`IssuanceSaga.java:79`（`@Saga`）、`:91`（`transient UnderwritingDecisionGateway`）、`:223-224`（`@SagaEventHandler(associationProperty = "insuranceId")` + `on(InsuranceSubmittedForUnderwritingEvent)`）、`:235`（`underwritingDecisionGateway.requestDecision(request)`）、`:237`（`commandGateway.sendAndWait(new ReceiveUnderwritingResultCommand(...))`）；下行由 policy 侧 `SyncUnderwritingDecisionAdapter.java:42,44,49,52`（`@Component implements UnderwritingDecisionGateway`，注入 `UnderwritingApi`）经本域 Feign 契约完成「创建核保 → 提交结构化输入 → 触发决策 → 回传结论」四步，服务端实现为 `web/provider/UnderwritingApiProvider`。
+> - 🔴 **故「本域零 `@KafkaListener`」是设计定位，不是缺陷**：本域对 policy 的角色是 **Feign 服务端**（入站即 HTTP 请求），不存在需要消费的 policy 事件。m9-1204 曾据此记为「入站跨域链路缺失」，属**只看本域取证、未从调用方侧核验**导致的定性错误，已于 m10-1302 纠正（详见第七节）。
+> - 📌 **两处空目录亦非缺陷**：`infrastructure/client` 空——本域对下游（product/ruleengine/featurecenter）的 Feign 客户端直接扫码对端 `-api` 包（`UnderwritingApplication.java:22-23` 的 `@EnableFeignClients(basePackages = {...})`），Adapter 注入的正是对端 `ProductApi`/`RuleEngineApi`/`FeatureCenterApi`；`infrastructure/projection` 空——投影属 CQRS 读侧，按根规约 §3.4.9 落在 `query/handler/projection`（`UnderwritingProjectionEventHandler`，5 个 `@EventHandler`）。
 
 ---
 
@@ -163,7 +165,8 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
 
 > 以下均基于当前真实代码逐条实读核对（2026-09-14，每条附『文件:行号』证据）；调整前务必复核。
 
-1. 🔴 **入站跨域链路缺失**（**仍在逃**）：「投保单提交 → 自动触发核保」尚未打通。证据：① `UnderwritingApplication.java:22` 的 `@EnableFeignClients(basePackages = {"com.titanium.underwriting.infrastructure.client", ...})` 指向的 `infrastructure/client` 为**空目录**（无任何 `.java`）；② 本域 `src/main` 内**零 `@KafkaListener`**、无任何监听外部事件的 `@EventHandler`（全模块唯一 `@EventHandler` 在 `UnderwritingKafkaEventPublisher.java:57`，是**出站**发布器）；③ `infrastructure/projection` 亦为空目录。
+1. ✅ **原「入站跨域链路缺失」已纠正为设计定位（m10-1302，2026-09-14；**勿再按旧文记为在逃缺陷**）**：旧文据「本域零 `@KafkaListener`、`infrastructure/client` 为空目录、`infrastructure/projection` 为空」判定「投保单提交 → 自动触发核保」未打通，属**定性错误**——该链路走 **policy 域主动发起的同步 Feign**，本域是 Feign 服务端（`UnderwritingApi` 由 `web/provider/UnderwritingApiProvider` 实现），本就无需 Kafka 消费方。三处「空缺」逐一正名：① `infrastructure/client` 为空**非缺陷**——本域对下游的 Feign 客户端直接扫码对端 `-api` 包（`UnderwritingApplication.java:22-23`）；② 零 `@KafkaListener` 说明**不消费消息**，不等于入站链路未通；③ `infrastructure/projection` 为空**符合规范**——投影按根规约 §3.4.9 归 `query/handler/projection`（`UnderwritingProjectionEventHandler`，5 个 `@EventHandler`）。完整证据链见 §一「跨域链路现状」。
+   > 🔴 **取证方法教训**：判定「某跨域链路缺失」**必须从调用方侧核验**（谁发起、经何协议、对端扮演何角色），仅扫本域「有无 `@KafkaListener`」会把「同步 Feign 服务端」误判成「链路未通」。
    > **出站回流已通（勿再记为缺失）**：`UnderwritingKafkaEventPublisher.java:51,57-58,70`（`@ProcessingGroup("underwriting-kafka-group")`，`tracking` + DLQ，见 `application.yml`）订阅 `UnderwritingDecidedEvent` 外发 `underwriting-decided`，policy 域 `UnderwritingDecidedEventListener.java:35,47` 已订阅并按 `policyId` 回写投保单聚合。分区键与保序约束见 §4.3（m0-713）。
 2. 🔴 **端口冲突**：`server.port: 8083`（`bootstrap/.../application.yml`），与 clause 域相同（`titanium-clause-bootstrap/.../application.yml:2`），本地同时启动会冲突，见第二节。
 3. ⚠️ **CQRS 读写失衡**：**6 命令 vs 9 查询**，读模型投影逻辑集中在单个 `UnderwritingProjectionEventHandler`，扩展状态时勿遗漏投影分支。
@@ -200,6 +203,17 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
 - ✅ **Controller 桩方法**（旧缺陷 7）：修复前 `UnderwritingController` 的「按保单/按状态/全量」三个查询为 TODO 桩（`return ResponseEntity.notFound().build()` / `List.of()`，见 `65634e6^` 版本第 90-91、104-105、115-116 行）；现 `/search`、`/pending`、`/statistics` 三端点均真调 `underwritingQueryAppService` 并回读读模型（`UnderwritingController.java:165-227`）。修复提交 `65634e6`；读/写契约面另经 `564c897`（2026-09-14）补齐分页参数。
 - ✅ **重复决策逻辑**（旧缺陷 8）：`UnderwritingDomainService` 已删除（全仓 Java 零引用，`git log -S` 定位到 `65634e6`），「金额阈值 vs 风险等级 switch 两套并存」的口径冲突随之消解——现决策唯一入口是聚合根 `determineUnderwritingStatus`（`Underwriting.java:170-180`，输入优先、金额回退）。
 - ✅ **README.md 过期**（旧缺陷 10）：模块 README 已统一改写，现为 Spring Boot 4.0.1 / Axon 4.10 / Kafka 4.0 / MySQL 8（`README.md:8-9,61-63`），无 3.2.x / 4.1 / PostgreSQL 残留。修复提交 `1d3637d`（2026-08-27）。
+
+### 定性纠偏（m10-1302，2026-09-14）
+
+> 本节记录**结论被推翻**的旧条目。与上节「已修复」性质不同：那些确属缺陷且已修，本节这条**本就不是缺陷**，只是被误判。凡入此节者，勿再按旧文行事。
+
+- ✅ **「入站跨域链路缺失」正名为设计定位**（原「在逃缺陷 1」，见本节第 1 条）——取证路径全在**调用方侧**：
+  - `titanium-policy-application/.../saga/IssuanceSaga.java:79`（`@Saga`）、`:91`（`transient UnderwritingDecisionGateway`）、`:223-224`（`@SagaEventHandler(associationProperty = "insuranceId")` 收 `InsuranceSubmittedForUnderwritingEvent`）、`:235`（`requestDecision(request)`）、`:237`（`sendAndWait(new ReceiveUnderwritingResultCommand(...))`）——链路由 **policy 域发起**；
+  - `titanium-policy-infrastructure/.../adapter/underwriting/SyncUnderwritingDecisionAdapter.java:42,44,49,52`（`@Component implements UnderwritingDecisionGateway`，注入 `UnderwritingApi`）——下行经本域 Feign 契约完成「创建核保 → 提交结构化输入 → 触发决策 → 回传结论」四步；
+  - `titanium-policy-infrastructure/pom.xml:105` 依赖 `titanium-underwriting-api`——**本域是被调用方（服务端）**，非发起方。
+  - 本域 Kafka 角色**仅为出站发布方**（`underwriting-decided`，见《跨域事件目录-2026-09.md》第 101 行，状态「闭环」）；全域（含测试）`@KafkaListener` 计数为 0。
+  🔴 **判据**：本域「零 `@KafkaListener`」只证明**不消费消息**，不等于「入站链路未通」——定性入站链路必须结合**对端如何调用**，仅看本域取证会把「同步 Feign 服务端」误判成「链路缺失」。
 
 ---
 
