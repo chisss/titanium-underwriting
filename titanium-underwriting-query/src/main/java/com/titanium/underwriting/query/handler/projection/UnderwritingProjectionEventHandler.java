@@ -11,8 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.titanium.common.jpa.BasePersistable;
 import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.common.exception.UnderwritingException;
+import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
+import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.mapper.UnderwritingViewMapper;
 import com.titanium.underwriting.query.repository.UnderwritingViewRepository;
@@ -83,6 +85,44 @@ public class UnderwritingProjectionEventHandler {
 
         // UW-3：风险/结论/评分/状态及结构化加费随决策事件投影（映射器空安全转换 + IGNORE 保持既有值）
         applyUpdate(underwritingId, "核保决策", view -> underwritingViewMapper.applyDecided(view, event));
+    }
+
+    /**
+     * 投影险种专属输入提交事件：标记「已提交输入」并记录提交时的综合风险评分
+     * <p>
+     * 决策前必须先提交险种专属输入（聚合 {@code validateDecideCommand} 的业务前提），读侧据此筛出待决策件；
+     * 输入事件必然晚于创建事件，故沿用「缺失即抛错」的更新语义。
+     * </p>
+     */
+    @EventHandler
+    @Transactional
+    public void on(UnderwritingInputSubmittedEvent event) {
+        String underwritingId = event.underwritingId().value();
+        log.info("[读模型投影] 核保输入提交: underwritingId={}, submittedBy={}", underwritingId, event.submittedBy());
+
+        applyUpdate(underwritingId, "输入提交", view -> underwritingViewMapper.applyInputSubmitted(view, event));
+    }
+
+    /**
+     * 投影保全核保评估事件：upsert 读模型记录（保全结论/摘要/附加条件/完成时间）
+     * <p>
+     * 🔴 保全核保走 {@code CREATE_IF_MISSING} 聚合创建策略，该事件可能是核保单的**首个**事件——读模型记录
+     * 尚不存在时须就地新建，不能沿用 {@link #applyUpdate} 的「缺失即抛错」（否则保全核保单永远进不了读模型，
+     * 且其后续状态/决策事件会连锁抛错进 DLQ）。
+     * </p>
+     */
+    @EventHandler
+    @Transactional
+    public void on(MaintenanceUnderwritingAssessedEvent event) {
+        String underwritingId = event.underwritingId().value();
+        log.info("[读模型投影] 保全核保评估: underwritingId={}, maintenanceId={}, conclusion={}", underwritingId,
+                event.maintenanceId(), event.conclusion());
+
+        UnderwritingView view = underwritingViewRepository.findById(underwritingId).orElseGet(UnderwritingView::new);
+        underwritingViewMapper.applyMaintenanceAssessed(view, event);
+        stampAuditTime(view);
+
+        underwritingViewRepository.save(view);
     }
 
     /**

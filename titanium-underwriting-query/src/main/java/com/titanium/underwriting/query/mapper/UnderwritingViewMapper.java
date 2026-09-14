@@ -1,6 +1,7 @@
 package com.titanium.underwriting.query.mapper;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -9,16 +10,22 @@ import org.mapstruct.Named;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
+import com.alibaba.fastjson2.JSON;
+
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
+import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.view.UnderwritingView;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.ExtraPremium;
+import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
+import com.titanium.underwriting.valueobject.UnderwritingInput;
 
 /**
  * 核保读模型投影映射器（MapStruct，事件 → 读模型字段拷贝）
@@ -84,6 +91,46 @@ public interface UnderwritingViewMapper {
             qualifiedByName = "extraPremiumFixedAmountValue")
     @Mapping(target = "extraPremiumReason", source = "extraPremium", qualifiedByName = "extraPremiumReasonValue")
     void applyDecided(@MappingTarget UnderwritingView view, UnderwritingDecidedEvent event);
+
+    /**
+     * 核保输入提交事件 → 读模型（就地更新）：落「是否已提交险种专属输入」与提交时的综合风险评分。
+     * <p>
+     * 这两个字段支撑工作台在决策前筛出「已提交输入待决策」的核保单并预览风险等级；输入明细本身不进读模型
+     * （查询契约暂无该维度，避免为展示性大字段引入 JSON 列）。
+     * </p>
+     */
+    @Mapping(target = "underwritingId", ignore = true)
+    @Mapping(target = "updatedBy", source = "submittedBy")
+    @Mapping(target = "inputSubmitted", source = "underwritingInput", qualifiedByName = "inputHasAny")
+    @Mapping(target = "inputRiskScore", source = "underwritingInput", qualifiedByName = "inputRiskScore")
+    @Mapping(target = "createTime", ignore = true)
+    @Mapping(target = "updateTime", ignore = true)
+    void applyInputSubmitted(@MappingTarget UnderwritingView view, UnderwritingInputSubmittedEvent event);
+
+    /**
+     * 保全核保评估事件 → 读模型（就地 upsert）
+     * <p>
+     * 保全核保以 {@code CREATE_IF_MISSING} 建立聚合，该事件可能是核保单的**首个**事件，故调用方须允许
+     * View 实例为新建对象；状态由结论经 {@link MaintenanceUnderwritingConclusion#toUnderwritingStatus()}
+     * 映射（与写侧回放同口径），核保类型固定为保全，创建人/业务创建时间取评估人与评估时间。
+     * </p>
+     */
+    @Mapping(target = "underwritingId", source = "underwritingId", qualifiedByName = "underwritingIdValue")
+    @Mapping(target = "underwritingType", constant = "ENDORSEMENT")
+    @Mapping(target = "status", source = "conclusion", qualifiedByName = "maintenanceStatus")
+    @Mapping(target = "maintenanceId", source = "maintenanceId")
+    @Mapping(target = "maintenanceItemCode", source = "itemCode")
+    @Mapping(target = "maintenanceConclusion", source = "conclusion")
+    @Mapping(target = "maintenanceSummary", source = "summary")
+    @Mapping(target = "maintenanceAdditionalConditionsJson", source = "additionalConditions",
+            qualifiedByName = "jsonArray")
+    @Mapping(target = "maintenanceCompletedAt", source = "completedAt")
+    @Mapping(target = "createdBy", source = "assessedBy")
+    @Mapping(target = "updatedBy", source = "assessedBy")
+    @Mapping(target = "createdAt", source = "assessedAt")
+    @Mapping(target = "createTime", ignore = true)
+    @Mapping(target = "updateTime", ignore = true)
+    void applyMaintenanceAssessed(@MappingTarget UnderwritingView view, MaintenanceUnderwritingAssessedEvent event);
 
     /** 核保标识值对象 → 标识串（空安全） */
     @Named("underwritingIdValue")
@@ -182,5 +229,29 @@ public interface UnderwritingViewMapper {
     @Named("extraPremiumReasonValue")
     default String extraPremiumReasonValue(ExtraPremium extraPremium) {
         return extraPremium == null ? null : extraPremium.reason();
+    }
+
+    /** 核保输入容器 → 是否已提交有效输入（空安全）：容器非空且至少填充一项输入时为 true */
+    @Named("inputHasAny")
+    default Boolean inputHasAny(UnderwritingInput input) {
+        return input != null && input.hasAnyInput();
+    }
+
+    /** 核保输入容器 → 综合风险评分（空安全，与决策事件 riskScore 同源） */
+    @Named("inputRiskScore")
+    default Integer inputRiskScore(UnderwritingInput input) {
+        return input != null ? input.aggregateRiskScore() : null;
+    }
+
+    /** 保全核保结论 → 核保状态（口径内聚在枚举上，与写侧事件回放共用同一映射） */
+    @Named("maintenanceStatus")
+    default UnderwritingEnum.UnderwritingStatus maintenanceStatus(MaintenanceUnderwritingConclusion conclusion) {
+        return conclusion != null ? conclusion.toUnderwritingStatus() : null;
+    }
+
+    /** 字符串列表 → JSON 数组文本（空列表返回 null，避免存入 "[]" 与「无条件」语义歧义） */
+    @Named("jsonArray")
+    default String jsonArray(List<String> values) {
+        return values != null && !values.isEmpty() ? JSON.toJSONString(values) : null;
     }
 }

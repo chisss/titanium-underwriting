@@ -393,7 +393,7 @@ public class Underwriting extends BaseAggregate {
         this.tenantId = event.tenantId();
         this.policyId = PolicyId.of(event.policyId());
         this.underwritingType = UnderwritingEnum.UnderwritingType.ENDORSEMENT;
-        this.status = mapMaintenanceStatus(event.conclusion());
+        this.status = event.conclusion().toUnderwritingStatus();
         this.maintenanceId = event.maintenanceId();
         this.maintenancePolicyBaselineVersion = event.policyBaselineVersion();
         this.maintenanceItemCode = event.itemCode();
@@ -465,16 +465,6 @@ public class Underwriting extends BaseAggregate {
                 MAINTENANCE_RULE_VERSION, MAINTENANCE_MODEL_VERSION, maintenanceConclusion,
                 maintenanceAdditionalConditions, maintenanceSummary, maintenanceCompletedAt,
                 maintenanceAssessedAt, maintenanceAssessedBy);
-    }
-
-    private UnderwritingEnum.UnderwritingStatus mapMaintenanceStatus(
-            MaintenanceUnderwritingConclusion conclusion) {
-        return switch (conclusion) {
-            case NOT_REQUIRED, APPROVED -> UnderwritingEnum.UnderwritingStatus.APPROVED;
-            case CONDITIONAL_APPROVED -> UnderwritingEnum.UnderwritingStatus.RATED;
-            case MANUAL_REVIEW -> UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW;
-            case REJECTED -> UnderwritingEnum.UnderwritingStatus.DECLINED;
-        };
     }
 
     private record MaintenanceAssessment(

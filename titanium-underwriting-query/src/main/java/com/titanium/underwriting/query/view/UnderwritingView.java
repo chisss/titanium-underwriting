@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 import com.titanium.common.jpa.BaseView;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.valueobject.MaintenanceUnderwritingConclusion;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -121,6 +122,39 @@ public class UnderwritingView extends BaseView {
     /** 加费原因（dev-505：规则引擎加费结论的原因说明，随事件落库供展示/审计） */
     @Column(name = "extra_premium_reason", length = 500)
     private String                              extraPremiumReason;
+
+    /** 是否已提交险种专属核保输入（核保决策的前提条件，工作台据此筛选待决策件） */
+    @Column(name = "input_submitted")
+    private Boolean                             inputSubmitted;
+
+    /** 提交输入时的综合风险评分（决策前即可预览风险，与决策事件的 riskScore 同源） */
+    @Column(name = "input_risk_score")
+    private Integer                             inputRiskScore;
+
+    /** 保全单ID（保全核保路径特有） */
+    @Column(name = "maintenance_id", length = 50)
+    private String                              maintenanceId;
+
+    /** 保全事项编码 */
+    @Column(name = "maintenance_item_code", length = 50)
+    private String                              maintenanceItemCode;
+
+    /** 保全核保结论（语义独立于新单核保结论类型） */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "maintenance_conclusion", length = 50)
+    private MaintenanceUnderwritingConclusion   maintenanceConclusion;
+
+    /** 保全核保结论摘要 */
+    @Column(name = "maintenance_summary", length = 500)
+    private String                              maintenanceSummary;
+
+    /** 保全核保附加条件（JSON 数组文本，空表示无条件） */
+    @Column(name = "maintenance_additional_conditions_json", columnDefinition = "TEXT")
+    private String                              maintenanceAdditionalConditionsJson;
+
+    /** 保全核保完成时间（转人工复核时为空，与聚合 completedAt 口径一致） */
+    @Column(name = "maintenance_completed_at")
+    private LocalDateTime                       maintenanceCompletedAt;
 
     /** 业务创建人 */
     @Column(name = "created_by", length = 50)
