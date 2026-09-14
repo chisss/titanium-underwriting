@@ -154,6 +154,7 @@ public class Underwriting extends BaseAggregate {
     public UnderwritingStatusChangedEvent handle(UnderwriteCommand command) {
         // Validate command
         validateUnderwriteCommand(command);
+        requireNotTerminal("UnderwriteCommand");
 
         // Determine new status based on business rules
         UnderwritingEnum.UnderwritingStatus newStatus = determineUnderwritingStatus(command);
@@ -189,6 +190,7 @@ public class Underwriting extends BaseAggregate {
     @CommandHandler
     public UnderwritingInputSubmittedEvent handle(SubmitUnderwritingInputCommand command) {
         validateSubmitInputCommand(command);
+        requireNotTerminal("SubmitUnderwritingInputCommand");
 
         UnderwritingInputSubmittedEvent event = new UnderwritingInputSubmittedEvent(command.underwritingId(),
                 command.underwritingInput(), LocalDateTime.now(), command.submittedBy(), command.tenantId());
@@ -212,6 +214,7 @@ public class Underwriting extends BaseAggregate {
     @CommandHandler
     public UnderwritingDecidedEvent handle(DecideUnderwritingCommand command) {
         validateDecideCommand(command);
+        requireNotTerminal("DecideUnderwritingCommand");
 
         UnderwritingEnum.UnderwritingStatus oldStatus = this.status;
         int riskScore = this.underwritingInput.aggregateRiskScore();
@@ -318,6 +321,7 @@ public class Underwriting extends BaseAggregate {
     public void handle(ManualReviewCommand command) {
         // Validate command
         validateManualReviewCommand(command);
+        requireNotTerminal("ManualReviewCommand");
 
         // Change status to manual review
         UnderwritingEnum.UnderwritingStatus oldStatus = this.status;
@@ -349,7 +353,8 @@ public class Underwriting extends BaseAggregate {
     @EventSourcingHandler
     public void on(UnderwritingStatusChangedEvent event) {
         this.status = event.newStatus();
-        if (UnderwritingEnum.UnderwritingStatus.REJECTED.equals(event.newStatus())) {
+        // 拒保口径统一走枚举 isRejected()：原处仅判历史保留值 REJECTED，会漏掉真实拒保状态 DECLINED 的原因落库
+        if (event.newStatus().isRejected()) {
             this.rejectReason = event.reason();
         }
         if (UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW.equals(event.newStatus())) {
@@ -373,7 +378,7 @@ public class Underwriting extends BaseAggregate {
         this.extraPremium = event.extraPremium();
         this.status = event.newStatus();
         // dev-505：决策原因按结论状态落库（拒保原因/人工复核意见），与状态变更事件口径一致
-        if (UnderwritingEnum.UnderwritingStatus.DECLINED.equals(event.newStatus())) {
+        if (event.newStatus().isRejected()) {
             this.rejectReason = event.reason();
         }
         if (UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW.equals(event.newStatus())) {
@@ -591,6 +596,30 @@ public class Underwriting extends BaseAggregate {
                     this.status == null ? "UNKNOWN" : this.status.getCode(),
                     UnderwritingEnum.UnderwritingStatus.APPROVED.getCode(),
                     "核保决策前必须先提交险种专属核保输入");
+        }
+    }
+
+    /**
+     * 终态保护：核保一旦形成最终结论（承保/拒保/延期/过期），不得再变更状态或补交险种输入
+     * <p>
+     * 同一投保单的再次核保（拒保后重投、保全加保重新评估）必须**新建核保单**，由 {@code policyId} 维度串联，
+     * 而不是复用同一核保聚合改写结论——{@code underwriting-decided} 跨域事件按 {@code policyId} 保序投递，
+     * 冲突结论会直接覆盖 policy 域对同一投保单的承保判断。此前四个命令处理器均无状态前置校验，
+     * 已终态的核保单可被再次决策并被下游读作新结论。
+     * </p>
+     * <p>
+     * 非终态之间的流转（如人工复核中补交输入、复核后重新自动核保）**不做限制**：这些属流程内的正常往返，
+     * 加锁会误伤既有编排，故只守「终态不可逆」这一条明确红线。
+     * </p>
+     *
+     * @param commandName 被拒命令名，写入异常原因说明
+     * @throws UnderwritingStatusException 当前状态为终态时抛出（错误码 {@code ILLEGAL_STATUS_TRANSITION}）
+     */
+    private void requireNotTerminal(String commandName) {
+        if (this.status != null && this.status.isTerminal()) {
+            throw new UnderwritingStatusException(UnderwritingErrorCode.ILLEGAL_STATUS_TRANSITION,
+                    this.underwritingId.toString(), this.status.getCode(), this.status.getCode(),
+                    "核保已处于终态[" + this.status.getName() + "]，" + commandName + " 不可再执行");
         }
     }
 

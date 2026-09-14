@@ -142,8 +142,7 @@ public interface UnderwritingWebMapper {
     /** 拒保/撤单状态 → 拒绝原因，其余状态返回 null。 */
     @Named("rejectReasonOf")
     default String rejectReasonOf(UnderwritingStatusChangedEvent event) {
-        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED
-                || event.newStatus() == UnderwritingEnum.UnderwritingStatus.DECLINED) {
+        if (event.newStatus().isRejected()) {
             return event.reason();
         }
         return null;
@@ -152,8 +151,7 @@ public interface UnderwritingWebMapper {
     /** 非拒保状态 → 审核意见，拒保/撤单状态返回 null。 */
     @Named("reviewCommentsOf")
     default String reviewCommentsOf(UnderwritingStatusChangedEvent event) {
-        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED
-                || event.newStatus() == UnderwritingEnum.UnderwritingStatus.DECLINED) {
+        if (event.newStatus().isRejected()) {
             return null;
         }
         return event.reason();
@@ -162,8 +160,7 @@ public interface UnderwritingWebMapper {
     /** 决策拒保 → 拒保原因（规则引擎原因），其余状态返回 null。 */
     @Named("rejectReasonOfDecided")
     default String rejectReasonOfDecided(UnderwritingDecidedEvent event) {
-        if (event.newStatus() == UnderwritingEnum.UnderwritingStatus.REJECTED
-                || event.newStatus() == UnderwritingEnum.UnderwritingStatus.DECLINED) {
+        if (event.newStatus().isRejected()) {
             return event.reason();
         }
         return null;
