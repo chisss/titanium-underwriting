@@ -1,7 +1,7 @@
 # Titanium 核保域 (titanium-underwriting) - 模块开发规约
 
-> **版本**: V1.0
-> **最后更新**: 2026-09-11
+> **版本**: V1.1
+> **最后更新**: 2026-09-14（实读纠偏：全文结论逐条对照代码复核并附『文件:行号』证据，见第七节）
 > **定位**: 保险核心系统 - 核保域微服务
 > **上级规约**: 见根目录 [CLAUDE.md](../CLAUDE.md)，本文档仅补充本模块差异化内容，通用规约不重复
 
@@ -21,7 +21,9 @@
 - **人工核保**：金额或风险超阈值时转 `MANUAL_REVIEW`，由核保员处理
 - **核保查询**：面向核保员工作台的多维度查询（按状态、风险等级、核保员、客户历史、统计等）
 
-> ⚠️ 当前代码中「核保结论回传 policy 域」「监听 policy 域投保单提交事件」两条跨域链路**尚未实现**，详见第七节已知缺陷。
+> **跨域链路现状（实读核对，2026-09-14）**：
+> - ✅ **出站「核保结论回传 policy 域」已通**：`UnderwritingKafkaEventPublisher.java:51,57-58,70`（处理组 `underwriting-kafka-group`，订阅 `UnderwritingDecidedEvent` 后按 `policyId` 分区键发 `underwriting-decided`），policy 侧由 `titanium-policy-infrastructure/.../messaging/UnderwritingDecidedEventListener.java:35,47` 的 `@KafkaListener` 消费并按投保单回写聚合。
+> - 🔴 **入站「监听 policy 域投保单提交事件」仍缺失**：本域 main 无任何 `@KafkaListener`（唯一的 `@EventHandler` 是上述出站发布器），`infrastructure/client` 为空目录。详见第七节在逃缺陷 1。
 
 ---
 
@@ -30,7 +32,7 @@
 | 项目 | 值 | 备注 |
 |------|----|----|
 | JDK | Amazon Corretto 21 | 路径 `/Users/sunwei/Library/Java/JavaVirtualMachines/corretto-21.0.4/Contents/Home` |
-| Spring Boot | 4.0.1 | ⚠️ README.md 旧文写的 3.2.x 已过期，以根 pom 为准 |
+| Spring Boot | 4.0.1 | 与根 pom 一致；模块 README 已统一为 SB 4.0.1 / Axon 4.10 / MySQL 8（`README.md:8-9,61-63`，`1d3637d`） |
 | Axon Framework | 4.10.0 | CQRS + Event Sourcing |
 | Kafka | 4.0.1 | 事件源 / 跨服务事件 |
 | 数据库 | MySQL，库名 **`titanium_underwriting`** | 见 `application.yml` |
@@ -45,18 +47,20 @@
 
 基于 `pom.xml` 实际 8 个 module：
 
-| 子模块 | 职责 | 关键类 |
+| 子模块 | 职责 | 关键类（实读清点） |
 |--------|------|--------|
-| `-common` | 常量、自定义异常 | `UnderwritingConstants`、`UnderwritingException` |
-| `-domain` | 领域核心：聚合根、命令、事件、值对象、仓储接口、领域服务 | `Underwriting`、3 命令、2 事件、4 值对象 |
-| `-infrastructure` | 配置与出口：Axon/Kafka 配置、事件发布（写侧纯事件溯源，无 JPA 写表/`*Entity`/`Jpa*Repository`） | `AxonConfig`、`KafkaConfig`、`UnderwritingKafkaEventPublisher` |
-| `-application` | 命令/查询编排（CommandGateway / QueryGateway） | `UnderwritingCommandService`、`UnderwritingQueryAppService` |
-| `-api` | Feign 接口定义、DTO、Request | `UnderwritingApi`、`UnderwritingDTO` |
-| `-web` | REST Controller、VO、租户拦截器 | `UnderwritingApiController`、`UnderwritingController` |
-| `-query` | CQRS 读侧：QueryHandler、读模型投影、查询服务、缓存 | `UnderwritingConditionQueryHandler`、`UnderwritingProjectionEventHandler` |
-| `-bootstrap` | 启动类、`application.yml` | `UnderwritingApplication` |
+| `-common` | 常量、本域枚举、自定义异常 | `UnderwritingConstants`、`UnderwritingException`、`enums/{MaintenanceRiskClassification,VehicleUsageType}` |
+| `-domain` | 领域核心：聚合根、命令、事件、值对象、出口 Port、生成器、纯领域服务 | `Underwriting`；**6 命令 / 5 事件 / 15 值对象**；`port/{product,ruleengine,featurecenter}` 三 Port；`generator/UnderwritingNoGenerator`；`service/`：`RuleConclusionMappingService`、`MaintenanceUnderwritingCommandValidator` |
+| `-infrastructure` | 配置与出口适配：Axon/Kafka 配置、跨域出站发布、三个外部服务 Adapter、生成器实现（写侧纯事件溯源，无 JPA 写表/`*Entity`/`Jpa*Repository`——已实读确认为零残留） | `config/{AxonConfig,KafkaConfig,TenantContext}`、`event/UnderwritingKafkaEventPublisher`、`adapter/{product,ruleengine,featurecenter}/*Adapter`、`generator/UnderwritingNoGeneratorImpl` |
+| `-application` | 命令/查询入口门面 + 决策编排 | `service/UnderwritingCommandService`、`query/UnderwritingQueryAppService`、`orchestration/UnderwritingDecisionOrchestrator` |
+| `-api` | Feign 契约（入参 `Request`/出参 `Response`，**已无 DTO**，按业务主题拆子包） | `UnderwritingApi`、`MaintenanceUnderwritingApi`、`UnderwritingBaseApi`、`request/{underwriting,maintenance}/`、`response/{underwriting,maintenance}/` |
+| `-web` | REST Controller、DTO/VO、契约 Provider、Mapper、Assembler、租户拦截器 | `controller/UnderwritingController`、`provider/{UnderwritingApiProvider,MaintenanceUnderwritingApiProvider}`、`mapper/`×3、`assembler/UnderwritingWebAssembler`、`interceptor/TenantInterceptor` |
+| `-query` | CQRS 读侧：QueryHandler、读模型投影、查询服务、缓存、DLQ 重投 | `handler/query/UnderwritingQueryHandler`（9 个 `@QueryHandler`）、`handler/projection/UnderwritingProjectionEventHandler`、`service/UnderwritingQueryService(Impl)`、`view/UnderwritingView`、`scheduled/DeadLetterQueueService` |
+| `-bootstrap` | 启动类、`application.yml`、Liquibase 脚本 | `UnderwritingApplication` |
 
-> 注：根 CLAUDE.md 规约把 `query` 包归在 domain 层，本模块实际把查询定义拆在 `domain/query`（2 个）与 `query` 子模块的 `query` 包（9 个）两处，存在分散，详见第七节。
+> 🔴 **读侧投影表名是 `t_underwriting_view`**（`UnderwritingView.java:32` + `liquibase/ddl/underwriting_view_202607091700_weisun_ddl.sql:5`），旧文写的 `t_underwriting_query` 系笔误，已纠正；处理组 `underwriting-query-group`（`UnderwritingQueryHandler.java:34`、`UnderwritingProjectionEventHandler.java:37` 两处声明一致）。
+
+> 注：**查询定义已全部收敛到 `query` 子模块的 `query` 包（9 个 `Find*Query`），`domain` 层不再有 `query` 子包**——旧文所述「拆在 `domain/query` 与 query 子模块两处、存在分散」的旧结构已随 `65634e6`（2026-07-09）包结构重构消除。
 
 ---
 
@@ -64,17 +68,19 @@
 
 ### 4.1 聚合根 Underwriting
 
-`domain/aggregate/Underwriting.java`，**充血模型**，共 **6 个 `@CommandHandler` + 5 个 `@EventSourcingHandler`**，校验逻辑内聚于聚合根内部私有方法：
+`domain/aggregate/Underwriting.java`，**充血模型**，共 **6 个 `@CommandHandler` + 5 个 `@EventSourcingHandler`**，校验逻辑内聚于聚合根内部私有方法（`Underwriting.java:115,126,153,190,214,320` / `:336,353,367,374,395`）：
 
 | 方法 | 类型 | 说明 |
 |------|------|------|
-| `Underwriting(CreateUnderwritingCommand)` | @CommandHandler(构造) | 校验后 apply `UnderwritingCreatedEvent` |
-| `handle(AssessMaintenanceUnderwritingCommand)` | @CommandHandler | 保全核保路径（带 `maintenanceId` + `policyId`），返回 `MaintenanceUnderwritingAssessedEvent` |
-| `handle(UnderwriteCommand)` | @CommandHandler | 依金额阈值(>100000转REVIEW，否则APPROVED) apply 状态变更事件 |
+| `Underwriting(CreateUnderwritingCommand)` | @CommandHandler(构造) | 校验后 `apply` `UnderwritingCreatedEvent`（唯一用 `apply` 的处理器） |
+| `handle(AssessMaintenanceUnderwritingCommand)` | @CommandHandler | 保全核保路径（带 `maintenanceId` + `policyId`），`@CreationPolicy(CREATE_IF_MISSING)` + 幂等键/payload 哈希预检，**返回** `MaintenanceUnderwritingAssessedEvent` |
+| `handle(UnderwriteCommand)` | @CommandHandler | 决策顺序：**先**按险种专属输入评估的风险等级判定（`underwritingInput.assessRiskLevel()` → `mapRiskLevelToStatus`），**无输入时回退**金额阈值（>100000 转 `REVIEW`，否则 `APPROVED`）；返回 `UnderwritingStatusChangedEvent` |
 | `handle(SubmitUnderwritingInputCommand)` | @CommandHandler | 提交险种专属核保输入，返回 `UnderwritingInputSubmittedEvent` |
 | `handle(DecideUnderwritingCommand)` | @CommandHandler | 出具核保结论，返回 `UnderwritingDecidedEvent` |
-| `handle(ManualReviewCommand)` | @CommandHandler | 转 `MANUAL_REVIEW` 状态 |
+| `handle(ManualReviewCommand)` | @CommandHandler | 转 `MANUAL_REVIEW` 状态（唯一返回 `void` 的处理器） |
 | `on(...)` × 5 | @EventSourcingHandler | 分别重建 `Created`/`StatusChanged`/`InputSubmitted`/`Decided`/`MaintenanceAssessed` 状态 |
+
+> 🔴 **同步返回事件 + 终态保护（实读补充）**：除构造器外，各处理器一律「`AggregateLifecycle.apply(event)` 后 `return event`」，便于调用方直接拿到结论（见 `UnderwritingSynchronousCommandTest`）；写入型处理器（`UnderwriteCommand`/`SubmitUnderwritingInputCommand`）前置 `requireNotTerminal(...)`，**已出具结论的核保单不得再被改写**（`4a26fa9`，回归见 `UnderwritingTerminalStateGuardTest`）。
 
 ### 4.2 命令（6 个，record + `@TargetAggregateIdentifier`）
 
@@ -97,13 +103,8 @@
 
 🔴 **`underwriting-decided` 的分区键固定为 `policyId`（m0-713 起）**：消费端 policy 域按**投保单**维度回写聚合，而同一投保单会产生**多次**核保决策（拒保后重投、保全加保的重新核保），只有分区键一致，Kafka 的「同分区内保序」才能兑现为「同投保单内保序」。**不得改回 `underwritingId`，更不得为 null**（null key 轮询分区）；`policyId` 缺失时退化按 `underwritingId` 分区并 `log.warn` 暴露数据异常。该 topic 的 `NewTopic` 显式声明 3 分区是保序前提，不可删除。回归用例：`UnderwritingKafkaEventPublisherTest`。
 
-### 4.4 查询（共 11 个 record）
+### 4.4 查询（共 9 个 record，全部在 query 子模块 `query` 包）
 
-**domain/query 包（2 个）**：
-- `UnderwritingQuery` — ⚠️ **无对应 QueryHandler，疑似死查询**
-- `FindUnderwritingByPolicyIdQuery` — ⚠️ 与 query 子模块同名类重复
-
-**query 子模块 query 包（9 个，均有 Handler）**：
 - `FindUnderwritingByIdQuery` — 按 ID
 - `FindUnderwritingByPolicyIdQuery` — 按保单 ID
 - `FindUnderwritingsByStatusQuery` — 按状态
@@ -114,7 +115,9 @@
 - `FindUnderwritingStatisticsQuery` — 核保统计
 - `FindPendingUnderwritingTasksQuery` — 待处理任务
 
-> 🔴 **CQRS 读写严重失衡**：写侧仅 3 命令，读侧 11 查询 / 9 Handler。读模型表 `t_underwriting_query` 由 `UnderwritingProjectionEventHandler`（处理组 `underwriting-query-group`）投影填充。
+> 🔴 **CQRS 读写失衡**：写侧 6 命令 vs 读侧 9 查询，全部 9 个 `@QueryHandler` 集中在一个类 `UnderwritingQueryHandler`（`query/handler/query/`，处理组 `underwriting-query-group`），扩展状态时勿遗漏投影分支。读模型表 **`t_underwriting_view`** 由 `UnderwritingProjectionEventHandler`（同处理组）投影填充。
+
+> 旧文所载「`domain/query` 包 2 个查询（`UnderwritingQuery` 死查询、`FindUnderwritingByPolicyIdQuery` 重名）」**已不存在**：该包连同查询定义已在 `65634e6`（2026-07-09）删除，查询全部收敛到 `query` 子模块。
 
 > **持久化选型（写侧纯事件溯源）**：`Underwriting` 聚合为 Axon 事件溯源（`EventSourcingRepository` + `@EventSourcingHandler`），写侧状态只在事件流，**无 JPA 写表 / `UnderwritingEntity` / `UnderwritingJpaRepository`**（原为死码，已删除）。JPA 仅承载 CQRS 读模型（`query.view` / `query.repository`）。若后续新增**状态存储聚合**需保留的持久化对象，一律命名 `XxxxDO`（禁用 `Entity` 后缀），读模型投影保留 `*View`。选型细则见根 `docs/技术文档/持久化选型规范(JPA与EventSourcing).md`。
 
@@ -124,11 +127,11 @@
 
 继承根 CLAUDE.md，以下为本模块需重点遵守/修正项：
 
-- **命令/查询用 record**：已遵守，新增命令/查询同样用 record。
-- **构造器注入优先**：🔴 现状不一致——`UnderwritingCommandService`、`UnderwritingConditionQueryHandler` 仍用 `@Autowired` 构造器注入，应改为 `@RequiredArgsConstructor` + `final`（参考 `UnderwritingController`、`UnderwritingApiController` 的正确写法）。
-- **MapStruct 转换**：跨层转换走 Mapper，本模块 web 层 `UnderwritingWebMapper`（Request/DTO↔Command/VO）。写侧已纯事件溯源，原「聚合根↔`UnderwritingEntity`」的 infra Mapper（`UnderwritingEntityMapper` 等）已随写侧 JPA 一并删除。
-- **充血模型**：业务校验内聚到 `Underwriting` 聚合根，**禁止**把核保规则散落到 Service。注意 `UnderwritingDomainService.determineUnderwritingStatus` 与聚合根内的同名决策逻辑并存，新增规则前先消除重复（详见第七节）。
-- **面向接口/多态替代分支**：🔴 `UnderwritingDomainService` 用 `switch(riskLevel)` 决策，违背根规约「策略替代 switch 类型分支」，重构时应改策略模式。
+- **命令/查询用 record**：已遵守，新增命令/查询同样用 record（6 命令 / 5 事件 / 9 查询均为 record）。
+- **构造器注入优先**：✅ 已达标——全模块 `src/main` 零 `@Autowired`；`UnderwritingCommandService.java:35-40` 为 `@RequiredArgsConstructor` + `final` 字段，controller/provider 同型。（旧文所记「仍用 `@Autowired`」的状态已随模块重构消除。）
+- **MapStruct 转换**：跨层转换走 Mapper，本模块 web 层三个 `*WebMapper` + query 层两个 `*Mapper`。写侧已纯事件溯源，原「聚合根↔`UnderwritingEntity`」的 infra Mapper 已随写侧 JPA 一并删除（实读确认 infra 层零 `*Entity`/`*Mapper`/`*JpaRepository` 残留）。
+- **充血模型**：业务校验内聚到 `Underwriting` 聚合根，**禁止**把核保规则散落到 Service。⚠️ 旧文点名的 `UnderwritingDomainService` **已删除**（全仓 Java 零引用；删除提交 `65634e6`），其决策职责现由聚合根承担——金额阈值/风险等级判定见 `Underwriting.java:60,170-180`，风险等级→结论→状态的两级映射见 `Underwriting.java:286,301`。现行 `domain/service` 只剩两类**纯领域**逻辑：`RuleConclusionMappingService`（规则引擎结论→领域决策映射，`impl/RuleConclusionMappingServiceImpl.java:44`）与 `MaintenanceUnderwritingCommandValidator`（保全核保命令校验），均无 Port / 无 CommandGateway，符合根规约 §3.4.4。
+- **面向接口/多态替代分支**：✅ 现存 `switch` 均为**枚举穷尽映射**（`Underwriting.java:286,301,436`、`RuleConclusionMappingServiceImpl.java:44`），属 Java 惯用且与 m7-1002「穷尽 switch 强制表态」口径一致，**非**「按类型分支」违例；新增的**类型**分派仍须用多态/策略。旧文所指 `UnderwritingDomainService` 的 `switch(riskLevel)` 违例随该类删除而消解。
 - **中文注释 + SLF4J 占位符**：投影器 `UnderwritingProjectionEventHandler` 是范本（`log.info("...{}", ...)`），新增日志照此办理。
 - **多租户**：所有命令/事件/查询/读模型均带 `tenantId`，REST 入口统一 `@RequestHeader("X-Tenant-ID")`，新增接口不得遗漏。
 
@@ -152,25 +155,21 @@ mvn spring-boot:run
 mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
 ```
 
-依赖中间件：MySQL（库 `titanium_underwriting`）、Kafka（`localhost:9092`）。`ddl-auto: update` 会自动建表（见缺陷第 4 条）。
+依赖中间件：MySQL（库 `titanium_underwriting`）、Kafka（`localhost:9092`）。`spring.jpa.hibernate.ddl-auto: none`，建表一律经 Liquibase（`bootstrap/src/main/resources/liquibase/changelog-master.xml`）——**旧文所记 `ddl-auto: update` 自动建表已不成立**，见 `application.yml` 的 `jpa`/`liquibase` 两段。
 
 ---
 
 ## 七、已知缺陷与注意事项
 
-> 以下均基于当前真实代码，调整前务必复核：
+> 以下均基于当前真实代码逐条实读核对（2026-09-14，每条附『文件:行号』证据）；调整前务必复核。
 
-1. 🔴 **入站跨域链路缺失**：`@EnableFeignClients(basePackages="...infrastructure.client")` 指向的 `client` 包为**空目录**；模块内**没有任何监听 policy 域投保单提交事件**的消费者（无外部事件 `@EventHandler`/`@KafkaListener`）。「投保单提交→自动触发核保」尚未打通。
-   > **出站回流已通**（勿再记为缺失）：`UnderwritingKafkaEventPublisher`（`@ProcessingGroup("underwriting-kafka-group")`，`subscribing` 模式）订阅 `UnderwritingDecidedEvent` 外发 `underwriting-decided`，policy 域 `UnderwritingDecidedEventListener` 已订阅并按 `policyId` 回写投保单聚合。分区键与保序约束见 §4.3（m0-713）。
-2. 🔴 **Feign 自调用反模式**：唯一 `@FeignClient` 是 `UnderwritingApi`（name=`titanium-underwriting-service`，指向自己），且不在被扫描的 `client` 包内；`UnderwritingController` 注入 `UnderwritingApi` 调用本服务，属绕一圈自调用，应直接调 Application 层。
-3. 🔴 **端口冲突**：8083 与 clause 域重复，见第二节。
-4. 🔴 **未用 Liquibase**：`application.yml` 用 `ddl-auto: update` 自动建表，违背根规约「SQL 用 Liquibase 维护」；且 `hibernate.dialect` 配成 `MySQL5InnoDBDialect`（偏旧）。
-5. ⚠️ **CQRS 读写失衡**：3 命令 vs 11 查询，读模型投影逻辑集中在单个 `UnderwritingProjectionEventHandler`，扩展状态时勿遗漏投影分支。
-6. ⚠️ **死查询/重复查询**：`domain/query/UnderwritingQuery` 无 Handler；`FindUnderwritingByPolicyIdQuery` 在 domain 与 query 两处重名定义，易混淆。
-7. ⚠️ **Controller 桩方法**：`UnderwritingController` 与 `UnderwritingApiController` 中按保单/状态/全量查询的方法为 TODO 桩（返回 `null`/`notFound`/空列表），未真正实现。
-8. ⚠️ **重复决策逻辑**：聚合根 `determineUnderwritingStatus`（金额阈值）与 `UnderwritingDomainService.determineUnderwritingStatus`（风险等级 switch）两套并存且口径不一致，需统一。
-9. ⚠️ **TenantContext 重复**：`web` 与 `infrastructure` 各有一份 `TenantContext`，租户上下文实现分散。
-10. ⚠️ **README.md 过期**：旧 README 写 Spring Boot 3.2 / Axon 4.1 / PostgreSQL，与实际 SB4.0.1 / Axon4.10 / MySQL 不符，调整时一并更新。
+1. 🔴 **入站跨域链路缺失**（**仍在逃**）：「投保单提交 → 自动触发核保」尚未打通。证据：① `UnderwritingApplication.java:22` 的 `@EnableFeignClients(basePackages = {"com.titanium.underwriting.infrastructure.client", ...})` 指向的 `infrastructure/client` 为**空目录**（无任何 `.java`）；② 本域 `src/main` 内**零 `@KafkaListener`**、无任何监听外部事件的 `@EventHandler`（全模块唯一 `@EventHandler` 在 `UnderwritingKafkaEventPublisher.java:57`，是**出站**发布器）；③ `infrastructure/projection` 亦为空目录。
+   > **出站回流已通（勿再记为缺失）**：`UnderwritingKafkaEventPublisher.java:51,57-58,70`（`@ProcessingGroup("underwriting-kafka-group")`，`tracking` + DLQ，见 `application.yml`）订阅 `UnderwritingDecidedEvent` 外发 `underwriting-decided`，policy 域 `UnderwritingDecidedEventListener.java:35,47` 已订阅并按 `policyId` 回写投保单聚合。分区键与保序约束见 §4.3（m0-713）。
+2. 🔴 **端口冲突**：`server.port: 8083`（`bootstrap/.../application.yml`），与 clause 域相同（`titanium-clause-bootstrap/.../application.yml:2`），本地同时启动会冲突，见第二节。
+3. ⚠️ **CQRS 读写失衡**：**6 命令 vs 9 查询**，读模型投影逻辑集中在单个 `UnderwritingProjectionEventHandler`，扩展状态时勿遗漏投影分支。
+4. ⚠️ **TenantContext 重复**：`web/config/TenantContext.java` 与 `infrastructure/config/TenantContext.java` 各有一份，租户上下文实现分散。
+
+> 另记（非缺陷，供后续改造参考）：`determineUnderwritingStatus` 的金额阈值分支带 `TODO 规则引擎接入`（`Underwriting.java:177-178`）——阈值应改由 `titanium-rule-engine` 按险种/租户配置，当前为硬编码回退规则。
 
 > 已修复缺口（m0-713，2026-09-11）：
 > - ✅ **`underwriting-decided` 分区有序性**：发布器原以 `underwritingId` 作分区键、为空时发 null key。但消费端 policy 域按**投保单**维度回写，同一投保单会有多次决策（拒保后重投、保全加保重新核保），用核保单作键会把它们散到不同分区，Kafka 的「同分区内保序」落空，后到的旧结论可能覆盖新结论。
@@ -190,6 +189,17 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
   🔴 **契约走可选请求头** `X-Business-Id`/`X-Business-Type`（与既有 `X-Tenant-Id` 同构），**不进请求体**——规则执行入口的 body 是裸 `Map<String,Object>` 规则变量，塞业务字段会污染规则变量命名空间。
   🔴 `businessType` 是**端口固有属性**（由 adapter 常量决定，非调用方逐次传入）；`businessId` 一律**追加为最后一个参数**以最小化既有参数语义扰动。
   回归：`RuleEngineServiceAdapterTest` 新增 `missingBusinessIdStillReportsBusinessDomainType`（业务单号缺失不阻断执行，域类型仍上报）。
+
+### 已修复缺口（m9-1204 实读纠偏，2026-09-14）
+
+> 本节记录本次逐条实读中**已失效**的旧缺陷条目与其修复证据。凡标注「已修复」者，均为对照当前代码复核确认，勿再按旧文行事。
+
+- ✅ **Feign 自调用反模式**（旧缺陷 2）：`UnderwritingController` 曾注入自身服务的 `UnderwritingApi` 绕圈自调用（`65634e6^` 版本第 17、34 行），且契约实现类 `web/controller/api/UnderwritingApiController` 与 Controller 职责混淆。现 controller 只注入应用层门面（`UnderwritingController.java:61-65`：`UnderwritingCommandService`/`UnderwritingQueryAppService`/`UnderwritingWebAssembler`/两个 Mapper），Feign 契约由 `web/provider/UnderwritingApiProvider.java:49`、`MaintenanceUnderwritingApiProvider.java:20` 实现（符合根规约 §3.4.10「契约实现落 web/provider、controller 不得 implements Api」）。修复提交 `65634e6`（2026-07-09）。
+- ✅ **未用 Liquibase**（旧缺陷 4）：`application.yml` 现为 `ddl-auto: none` + `spring.liquibase.enabled: true`（`change-log: classpath:liquibase/changelog-master.xml`），`bootstrap/src/main/resources/liquibase/ddl/` 下 8 个脚本管理 6 张 `axon_*` 系统表 + `t_underwriting_view` + `t_health_notice`/`t_medical_exam`/`t_underwriting_decision`/`t_business_number_sequence`。旧文所记 `MySQL5InnoDBDialect` 已随 Hibernate 7 移除，方言由 JDBC 自动探测（yml 内注释说明）。修复提交 `aa22bd8`（2026-07-15）。
+- ✅ **死查询/重复查询**（旧缺陷 6）：`domain/query` 包连同 `UnderwritingQuery`（无 Handler）、`FindUnderwritingByPolicyIdQuery`（与 query 子模块重名）已在 `65634e6` 随包结构重构**整体删除**，现全仓仅 9 个 `Find*Query`，全部位于 `titanium-underwriting-query/.../query/`。
+- ✅ **Controller 桩方法**（旧缺陷 7）：修复前 `UnderwritingController` 的「按保单/按状态/全量」三个查询为 TODO 桩（`return ResponseEntity.notFound().build()` / `List.of()`，见 `65634e6^` 版本第 90-91、104-105、115-116 行）；现 `/search`、`/pending`、`/statistics` 三端点均真调 `underwritingQueryAppService` 并回读读模型（`UnderwritingController.java:165-227`）。修复提交 `65634e6`；读/写契约面另经 `564c897`（2026-09-14）补齐分页参数。
+- ✅ **重复决策逻辑**（旧缺陷 8）：`UnderwritingDomainService` 已删除（全仓 Java 零引用，`git log -S` 定位到 `65634e6`），「金额阈值 vs 风险等级 switch 两套并存」的口径冲突随之消解——现决策唯一入口是聚合根 `determineUnderwritingStatus`（`Underwriting.java:170-180`，输入优先、金额回退）。
+- ✅ **README.md 过期**（旧缺陷 10）：模块 README 已统一改写，现为 Spring Boot 4.0.1 / Axon 4.10 / Kafka 4.0 / MySQL 8（`README.md:8-9,61-63`），无 3.2.x / 4.1 / PostgreSQL 残留。修复提交 `1d3637d`（2026-08-27）。
 
 ---
 
