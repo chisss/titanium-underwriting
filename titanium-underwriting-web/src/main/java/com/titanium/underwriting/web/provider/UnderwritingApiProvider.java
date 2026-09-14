@@ -2,11 +2,15 @@ package com.titanium.underwriting.web.provider;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.UnderwritingApi;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
@@ -43,6 +47,12 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/underwriting/api")
 @RequiredArgsConstructor
 public class UnderwritingApiProvider implements UnderwritingApi {
+
+    /** 单页最大条数：契约侧可传任意 size，读库须自我保护（超大 size 会退化为全表扫描） */
+    private static final int MAX_PAGE_SIZE     = 200;
+
+    /** 默认单页条数：与 {@link UnderwritingApi} 契约的 defaultValue 保持一致 */
+    private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final UnderwritingCommandService  underwritingCommandService;
     private final UnderwritingQueryAppService underwritingQueryAppService;
@@ -96,15 +106,19 @@ public class UnderwritingApiProvider implements UnderwritingApi {
     }
 
     @Override
-    public ResponseEntity<List<UnderwritingResponse>> getUnderwritingsByStatus(String status, String tenantId) {
-        // TODO: 待读侧补齐按状态列表查询后接通（读模型分页查询已在 QueryAppService，DTO 契约缺分页参数暂留空）
-        return ResponseEntity.ok(List.of());
+    public ResponseEntity<List<UnderwritingResponse>> getUnderwritingsByStatus(String status, int page, int size,
+            String tenantId) {
+        Page<UnderwritingQueryResult> results = underwritingQueryAppService.findUnderwritingsByStatus(
+                UnderwritingEnum.UnderwritingStatus.fromCode(status), pageRequest(page, size), tenantId);
+        return ResponseEntity.ok(toResponses(results));
     }
 
     @Override
-    public ResponseEntity<List<UnderwritingResponse>> getAllUnderwritings(String tenantId) {
-        // TODO: 待读侧补齐全量查询后接通（DTO 契约缺分页/租户维度参数暂留空）
-        return ResponseEntity.ok(List.of());
+    public ResponseEntity<List<UnderwritingResponse>> getAllUnderwritings(int page, int size, String tenantId) {
+        // 全量即「多条件全空」的动态查询：读侧 Specification 逐条跳过 null 条件，无需为契约新增 findAll 方法
+        Page<UnderwritingQueryResult> results = underwritingQueryAppService.findUnderwritingsByMultipleConditions(null,
+                null, null, null, null, null, null, pageRequest(page, size), tenantId);
+        return ResponseEntity.ok(toResponses(results));
     }
 
     /**
@@ -114,5 +128,23 @@ public class UnderwritingApiProvider implements UnderwritingApi {
         UnderwritingQueryResult result = underwritingQueryAppService
                 .findUnderwritingById(new UnderwritingId(underwritingId), tenantId);
         return underwritingWebMapper.toResponse(result);
+    }
+
+    /**
+     * 归一化契约侧分页参数：页码下限 0，单页条数上限 {@link #MAX_PAGE_SIZE}，非法 size 回落默认值
+     * <p>
+     * 远程契约可传任意 size，读库须自我保护——超大 size 会退化为全表扫描。
+     * </p>
+     */
+    private Pageable pageRequest(int page, int size) {
+        int safeSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+        return PageRequest.of(Math.max(page, 0), safeSize);
+    }
+
+    /**
+     * 读模型结果页 → 对外 Response 列表（分页元数据不进契约，见 {@link UnderwritingApi} 方法说明）
+     */
+    private List<UnderwritingResponse> toResponses(Page<UnderwritingQueryResult> results) {
+        return results.getContent().stream().map(underwritingWebMapper::toResponse).toList();
     }
 }

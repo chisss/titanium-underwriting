@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
@@ -95,22 +96,36 @@ public interface UnderwritingApi {
                                            @RequestHeader("X-Tenant-ID") String tenantId);
 
     /**
-     * 根据状态查询核保列表
+     * 根据状态分页查询核保列表
+     * <p>
+     * 返回当前页内容；分页元数据（总数/总页数）不在本契约内，需要时走 web 侧 {@code /search} 端点。
+     * </p>
      *
      * @param status 核保状态
+     * @param page 页码，从 0 开始
+     * @param size 每页条数，服务端上限 200
      * @param tenantId 租户ID
-     * @return 核保DTO列表
+     * @return 当前页核保DTO列表
      */
     @GetMapping("/status/{status}")
     ResponseEntity<List<UnderwritingResponse>> getUnderwritingsByStatus(@PathVariable("status") String status,
+                                                                   @RequestParam(value = "page", defaultValue = "0") int page,
+                                                                   @RequestParam(value = "size", defaultValue = "20") int size,
                                                                    @RequestHeader("X-Tenant-ID") String tenantId);
 
     /**
-     * 查询所有核保
+     * 分页查询全部核保
+     * <p>
+     * 返回当前页内容；分页元数据（总数/总页数）不在本契约内，需要时走 web 侧 {@code /search} 端点。
+     * </p>
      *
+     * @param page 页码，从 0 开始
+     * @param size 每页条数，服务端上限 200
      * @param tenantId 租户ID
-     * @return 核保DTO列表
+     * @return 当前页核保DTO列表
      */
     @GetMapping("/all")
-    ResponseEntity<List<UnderwritingResponse>> getAllUnderwritings(@RequestHeader("X-Tenant-ID") String tenantId);
+    ResponseEntity<List<UnderwritingResponse>> getAllUnderwritings(@RequestParam(value = "page", defaultValue = "0") int page,
+                                                             @RequestParam(value = "size", defaultValue = "20") int size,
+                                                             @RequestHeader("X-Tenant-ID") String tenantId);
 }
