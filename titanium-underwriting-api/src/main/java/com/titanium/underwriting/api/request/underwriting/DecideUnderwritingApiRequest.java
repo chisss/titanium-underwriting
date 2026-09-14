@@ -1,4 +1,4 @@
-package com.titanium.underwriting.api.request;
+package com.titanium.underwriting.api.request.underwriting;
 
 import lombok.Data;
 

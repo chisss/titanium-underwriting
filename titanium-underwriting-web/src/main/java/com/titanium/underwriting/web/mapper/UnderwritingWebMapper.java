@@ -9,7 +9,7 @@ import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.api.response.UnderwritingResponse;
+import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;

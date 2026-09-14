@@ -61,4 +61,43 @@ class UnderwritingArchitectureTest extends AbstractArchitectureGuardTest {
     protected void webLayerUsesDtoVoNotRequest() {
         super.webLayerUsesDtoVoNotRequest();
     }
+
+    /**
+     * 启用「api.request 按业务主题拆子包、顶层清零」（分包规则·批次 2）。
+     * <p>
+     * 核保域 api.request 已按业务主题二分：{@code request.underwriting}（创建 / 提交输入 / 决策 /
+     * 执行四步主流程）与 {@code request.maintenance}（保全核保评估），顶层零类。
+     * </p>
+     * <p>
+     * 🔴 <b>跨域引用面</b>：本包是 Feign 契约，被 policy（{@code UnderwritingServiceAdapter} /
+     * {@code SyncUnderwritingDecisionAdapter} 及其测试）与 maintenance（{@code MaintenanceUnderwritingAdapter}
+     * 及其测试）import，须先 install 本域 api 再编译下游。
+     * </p>
+     */
+    @Test
+    @Override
+    protected void apiRequestShouldNotContainFlatClasses() {
+        super.apiRequestShouldNotContainFlatClasses();
+    }
+
+    /**
+     * 启用「api.response 按业务主题拆子包、顶层清零」（分包规则·批次 2）。
+     * <p>
+     * 与 request 同构二分：{@code response.underwriting}（核保结论 / 统计）与
+     * {@code response.maintenance}（保全核保结果），顶层零类。
+     * </p>
+     * <p>
+     * 🔴 <b>跨域引用面</b>：被 policy（两个 Adapter 及测试）、maintenance（{@code MaintenanceUnderwritingAdapter}）、
+     * admin（{@code UnderwritingServiceClient} / {@code BusinessProxyService} / {@code DashboardController}）
+     * 三域 import。
+     * </p>
+     */
+    @Test
+    @Override
+    protected void apiResponseShouldNotContainFlatClasses() {
+        super.apiResponseShouldNotContainFlatClasses();
+    }
+
+    // 注：web.dto（4 类：创建 / 提交输入 / 决策 / 执行）为「核保案件全流程」单一业务主题集中包，
+    // 按《包结构分包规范与执行方案-2026-09》§一判据表豁免，不启用 webDtoShouldNotContainFlatClasses。
 }

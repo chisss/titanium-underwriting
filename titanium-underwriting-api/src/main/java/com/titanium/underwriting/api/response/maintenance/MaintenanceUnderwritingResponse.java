@@ -1,4 +1,4 @@
-package com.titanium.underwriting.api.response;
+package com.titanium.underwriting.api.response.maintenance;
 
 import java.time.LocalDateTime;
 import java.util.List;

@@ -12,10 +12,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
-import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
-import com.titanium.underwriting.api.request.DecideUnderwritingApiRequest;
-import com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest;
-import com.titanium.underwriting.api.request.UnderwriteRequest;
+import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
+import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
+import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
+import com.titanium.underwriting.api.request.underwriting.UnderwriteRequest;
 import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;

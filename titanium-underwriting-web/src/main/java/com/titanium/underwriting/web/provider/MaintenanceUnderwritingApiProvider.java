@@ -5,8 +5,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.titanium.underwriting.api.MaintenanceUnderwritingApi;
-import com.titanium.underwriting.api.request.AssessMaintenanceUnderwritingRequest;
-import com.titanium.underwriting.api.response.MaintenanceUnderwritingResponse;
+import com.titanium.underwriting.api.request.maintenance.AssessMaintenanceUnderwritingRequest;
+import com.titanium.underwriting.api.response.maintenance.MaintenanceUnderwritingResponse;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.web.mapper.MaintenanceUnderwritingWebMapper;

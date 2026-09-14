@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.api.response.UnderwritingResponse;
+import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.valueobject.PolicyId;

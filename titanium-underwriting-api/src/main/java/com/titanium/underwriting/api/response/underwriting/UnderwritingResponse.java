@@ -1,4 +1,4 @@
-package com.titanium.underwriting.api.response;
+package com.titanium.underwriting.api.response.underwriting;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

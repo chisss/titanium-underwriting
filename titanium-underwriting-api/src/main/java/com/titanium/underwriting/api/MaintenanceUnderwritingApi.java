@@ -6,8 +6,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 
-import com.titanium.underwriting.api.request.AssessMaintenanceUnderwritingRequest;
-import com.titanium.underwriting.api.response.MaintenanceUnderwritingResponse;
+import com.titanium.underwriting.api.request.maintenance.AssessMaintenanceUnderwritingRequest;
+import com.titanium.underwriting.api.response.maintenance.MaintenanceUnderwritingResponse;
 
 /** 保全场景专用核保契约，避免复用新单固定健康输入模型。 */
 @FeignClient(

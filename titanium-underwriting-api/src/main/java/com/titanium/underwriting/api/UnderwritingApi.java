@@ -11,11 +11,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 
-import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
-import com.titanium.underwriting.api.request.DecideUnderwritingApiRequest;
-import com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest;
-import com.titanium.underwriting.api.request.UnderwriteRequest;
-import com.titanium.underwriting.api.response.UnderwritingResponse;
+import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
+import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
+import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
+import com.titanium.underwriting.api.request.underwriting.UnderwriteRequest;
+import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
 
 /**
  * 核保服务Feign客户端

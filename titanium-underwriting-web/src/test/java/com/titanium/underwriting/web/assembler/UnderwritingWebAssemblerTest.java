@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
 
 import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
-import com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest;
+import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
+import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
 import com.titanium.underwriting.valueobject.UnderwritingInput;

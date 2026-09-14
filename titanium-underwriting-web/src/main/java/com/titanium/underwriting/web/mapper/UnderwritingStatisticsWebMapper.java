@@ -2,7 +2,7 @@ package com.titanium.underwriting.web.mapper;
 
 import org.mapstruct.Mapper;
 
-import com.titanium.underwriting.api.response.UnderwritingStatisticsResponse;
+import com.titanium.underwriting.api.response.underwriting.UnderwritingStatisticsResponse;
 import com.titanium.underwriting.query.result.UnderwritingStatisticsResult;
 
 /**

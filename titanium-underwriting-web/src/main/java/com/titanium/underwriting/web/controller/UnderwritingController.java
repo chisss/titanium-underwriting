@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.titanium.metadata.enums.BaseEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.api.response.UnderwritingStatisticsResponse;
+import com.titanium.underwriting.api.response.underwriting.UnderwritingStatisticsResponse;
 import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;

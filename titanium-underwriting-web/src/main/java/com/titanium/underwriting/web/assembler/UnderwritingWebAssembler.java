@@ -6,10 +6,10 @@ import org.springframework.stereotype.Component;
 
 import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.api.request.CreateUnderwritingRequest;
-import com.titanium.underwriting.api.request.DecideUnderwritingApiRequest;
-import com.titanium.underwriting.api.request.SubmitUnderwritingInputApiRequest;
-import com.titanium.underwriting.api.request.UnderwriteRequest;
+import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
+import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
+import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
+import com.titanium.underwriting.api.request.underwriting.UnderwriteRequest;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;

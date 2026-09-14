@@ -5,8 +5,8 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 
-import com.titanium.underwriting.api.request.AssessMaintenanceUnderwritingRequest;
-import com.titanium.underwriting.api.response.MaintenanceUnderwritingResponse;
+import com.titanium.underwriting.api.request.maintenance.AssessMaintenanceUnderwritingRequest;
+import com.titanium.underwriting.api.response.maintenance.MaintenanceUnderwritingResponse;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
 import com.titanium.underwriting.valueobject.MaintenanceRiskFieldChange;

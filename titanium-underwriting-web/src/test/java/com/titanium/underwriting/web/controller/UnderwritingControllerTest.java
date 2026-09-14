@@ -24,7 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
-import com.titanium.underwriting.api.response.UnderwritingResponse;
+import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
 import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
