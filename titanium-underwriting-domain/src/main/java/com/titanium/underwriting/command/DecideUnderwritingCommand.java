@@ -3,6 +3,7 @@ package com.titanium.underwriting.command;
 import org.axonframework.modelling.command.TargetAggregateIdentifier;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.valueobject.RuleUnderwritingDecision;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 
@@ -24,6 +25,11 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * 映射出的结论与状态（经 {@code RuleConclusionMappingService} 产出），不再走内置评分路径；
  * 为 null 时回退内置评分（规则集未接入或规则结论 PASS）。
  * </p>
+ * <p>
+ * {@code configSource} 标明 {@code surchargeAcceptable} 的取值依据（m11-1404）：由编排器从产品核保配置
+ * 快照带来，聚合根随决策事件一并落盘，使「本次决策是否有产品策略依据」可被事后审计。为 {@code null}
+ * 表示本命令未经产品配置编排（如直连命令的测试路径），同样按「无依据」对待。
+ * </p>
  *
  * @author wei.sun
  * @since 2026/6/23
@@ -34,6 +40,7 @@ public record DecideUnderwritingCommand(
         String decidedBy,
         String tenantId,
         Boolean surchargeAcceptable,
-        RuleUnderwritingDecision ruleDecision
+        RuleUnderwritingDecision ruleDecision,
+        ProductConfigSource configSource
 ) {
 }

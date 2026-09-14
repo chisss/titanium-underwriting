@@ -1,7 +1,7 @@
 # Titanium 核保域 (titanium-underwriting) - 多 Agent 协作指南
 
-> **版本**: V1.1
-> **最后更新**: 2026-09-14（m10-1302 纠偏：入站链路定性由「缺失」正名为「同步 Feign 设计定位」；连带复核并修正全文件的类名/路径/数量——Provider 取代旧 Controller、命令 6/事件 5/查询方法 10）
+> **版本**: V1.2
+> **最后更新**: 2026-09-14（m11-1404 产品核保配置来源显式化：`ProductConfigSource` 三态随命令/事件全链传递，事件载荷与破坏性红线相应补充）
 > **配套文档**: [CLAUDE.md](./CLAUDE.md)（模块开发规约）、根 [AGENTS.md](../AGENTS.md)（全局协作）
 
 本文档面向在核保域并行作业的多个 AI Agent，约定边界、交互点、文件锁定与协作检查清单，避免冲突与破坏性变更。
@@ -37,6 +37,8 @@
 
 ### 2.2 领域事件（Kafka）
 - 发布（**本域唯一跨域出口**）：`UnderwritingDecidedEvent` → topic `underwriting-decided`（`UnderwritingKafkaEventPublisher`，分区键 `policyId`）
+  - 🔴 **载荷演进只能尾部追加**（m11-1404）：`reason`（dev-505）、`configSource`（m11-1404）均为 record 尾部字段。Axon 事件流按 JSON 反序列化，旧事件缺字段取 null；下游 policy 侧为 fastjson2 防腐 record（未声明字段自动忽略）。**不得改动既有字段顺序/类型，不得新增非尾部字段**——那会让存量事件流反序列化错位。
+  - `configSource`（`ProductConfigSource`：`CONFIGURED`/`NOT_CONFIGURED`/`UNAVAILABLE`）标明本次决策所依据的产品核保配置是**产品域真实返回**还是**兜底默认值**（以及兜底处境）。判定必须走 `config.configured()`，**勿做 `!= null` 存在性判断**——兜底对象永远非 null，正是该字段要消除的语义盲区。
 - 消费：**本域无 Kafka 消费方（设计定位）**——入站走同步 Feign（见 §2.1），不消费 policy 域事件；`@KafkaListener` 全域计数为 0
 - 域内投影：`UnderwritingProjectionEventHandler`（`query/handler/projection/`，处理组 `underwriting-query-group`）订阅域内事件填充读模型（5 个 `@EventHandler`）
 - 信任包：`spring.json.trusted.packages = com.titanium.underwriting.event`（**出站发布器自用**，非入站消费）
@@ -89,6 +91,7 @@
 修改聚合根 / 命令 / 事件时，按下表逐项核对：
 
 - [ ] **命令变更** → 同步 `Underwriting` 对应 `@CommandHandler` 校验、`UnderwritingApiController` 构建命令处、`UnderwritingMapper`
+- [ ] **命令字段变更（带来源/上下文语义）** → 走全链核对：web 装配器（`UnderwritingWebAssembler` 两处 `toCommand`）→ 编排器充实 → 聚合根透传 → 事件落盘 → 投影/读模型。m11-1404 的 `configSource` 即此形态，漏任一跳即「语义在链路中途丢失」
 - [ ] **事件变更** → 同步聚合根 `@EventSourcingHandler` + `UnderwritingProjectionEventHandler` 投影 + 读模型实体 `UnderwritingQueryEntity` + Kafka topic（如新增事件类型）
 - [ ] **新增状态** → 检查投影器状态分支（拒保原因 / 审核意见写入逻辑）是否覆盖
 - [ ] **新增查询** → query 包定义 record + `UnderwritingConditionQueryHandler` 加 Handler + `UnderwritingQueryAppService` 加编排 + `UnderwritingQueryMapper` 转换；避免重蹈「`UnderwritingQuery` 无 Handler」覆辙
@@ -103,6 +106,7 @@
 ## 六、破坏性操作红线
 
 - 修改 `Underwriting` 聚合根的 `@CommandHandler`/`@EventSourcingHandler` 方法签名前，须确认事件存储兼容（Event Sourcing 重放）
+- 🔴 **事件 record 加字段一律尾部追加**（m11-1404 判据）：存量事件流按 JSON 反序列化，**非尾部插入 / 改字段类型 / 改字段顺序**会让旧事件错位反序列化甚至启动失败。加字段前须从**调用方侧**核验跨域消费方（policy 侧为 fastjson2 防腐 record，未声明字段自动忽略）；`UnderwritingDecidedEvent` 的 `reason`（dev-505）、`configSource`（m11-1404）为既有先例
 - 调整 Kafka topic 名 / partitions / replicas 前，须确认下游消费者与已有事件数据
 - 删除或重命名查询 record 前，须全仓 grep 确认无 Feign/前端引用
 - 任何涉及 `application.yml` 端口、数据库、Kafka 地址的改动，须在 PR 说明中显式标注

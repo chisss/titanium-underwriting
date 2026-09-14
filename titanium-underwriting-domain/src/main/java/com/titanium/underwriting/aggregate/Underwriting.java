@@ -246,7 +246,7 @@ public class Underwriting extends BaseAggregate {
         UnderwritingDecidedEvent event = new UnderwritingDecidedEvent(command.underwritingId(), this.policyId,
                 assessedRiskLevel, conclusion,
                 command.auditType(), oldStatus, newStatus, riskScore, derivedExtraPremium, LocalDateTime.now(),
-                command.decidedBy(), command.tenantId(), reason);
+                command.decidedBy(), command.tenantId(), reason, command.configSource());
         AggregateLifecycle.apply(event);
         return event;
     }

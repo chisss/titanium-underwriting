@@ -13,6 +13,7 @@ import org.mapstruct.factory.Mappers;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
+import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.valueobject.PolicyId;
@@ -73,7 +74,7 @@ class UnderwritingWebMapperTest {
                 PolicyId.of("POL-001"), UnderwritingEnum.RiskLevel.STANDARD,
                 UnderwritingEnum.ConclusionType.ACCEPT, UnderwritingEnum.AuditType.AUTOMATIC,
                 UnderwritingEnum.UnderwritingStatus.PENDING, UnderwritingEnum.UnderwritingStatus.STANDARD,
-                0, null, LocalDateTime.now(), "system", "TENANT-001", null);
+                0, null, LocalDateTime.now(), "system", "TENANT-001", null, ProductConfigSource.CONFIGURED);
 
         UnderwritingResponse response = mapper.toResponse(event);
 

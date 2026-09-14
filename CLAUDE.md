@@ -1,7 +1,7 @@
 # Titanium 核保域 (titanium-underwriting) - 模块开发规约
 
-> **版本**: V1.2
-> **最后更新**: 2026-09-14（m10-1302 入站链路定性纠偏：由「缺失」正名为「policy 主动发起的同步 Feign、本域为服务端」；判据=定性入站链路必须从调用方侧核验，见第七节）
+> **版本**: V1.3
+> **最后更新**: 2026-09-14（m11-1404 产品核保配置来源显式化：新增 `ProductConfigSource` 三态标记并随命令/事件全链传递，见第七节；同时保留 m10-1302 入站链路定性纠偏——判据=定性入站链路必须从调用方侧核验）
 > **定位**: 保险核心系统 - 核保域微服务
 > **上级规约**: 见根目录 [CLAUDE.md](../CLAUDE.md)，本文档仅补充本模块差异化内容，通用规约不重复
 
@@ -98,7 +98,7 @@
 - `UnderwritingCreatedEvent` — 核保创建
 - `UnderwritingStatusChangedEvent` — 核保状态变更（含 old/new 状态、原因）
 - `UnderwritingInputSubmittedEvent` — 核保输入提交
-- `UnderwritingDecidedEvent` — 核保决策完成（含结论/风险等级/加费明细/`policyId`，**跨域异步回流 policy 的载荷**）
+- `UnderwritingDecidedEvent` — 核保决策完成（含结论/风险等级/加费明细/`policyId`，**跨域异步回流 policy 的载荷**；`reason`（dev-505）与 `configSource`（m11-1404）均为尾部追加字段，旧事件 JSON 缺字段时 Jackson 取 null，向后兼容）
 - `MaintenanceUnderwritingAssessedEvent` — 保全核保评估完成
 
 对应 Kafka topic（`KafkaConfig`，partitions=3, replicas=2）：**仅 `underwriting-decided` 一个**（本域唯一跨域出口，见 `UnderwritingKafkaEventPublisher`）。原 `underwriting-created`/`underwriting-status-changed` 两个主题与常量已于 m5-903 删除（声明起从无发布点，属死主题）；`UnderwritingCreatedEvent`/`UnderwritingStatusChangedEvent` 只在本域事件流与投影内使用，不外发。
@@ -214,6 +214,18 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
   - `titanium-policy-infrastructure/pom.xml:105` 依赖 `titanium-underwriting-api`——**本域是被调用方（服务端）**，非发起方。
   - 本域 Kafka 角色**仅为出站发布方**（`underwriting-decided`，见《跨域事件目录-2026-09.md》第 101 行，状态「闭环」）；全域（含测试）`@KafkaListener` 计数为 0。
   🔴 **判据**：本域「零 `@KafkaListener`」只证明**不消费消息**，不等于「入站链路未通」——定性入站链路必须结合**对端如何调用**，仅看本域取证会把「同步 Feign 服务端」误判成「链路缺失」。
+
+---
+
+### 已修复缺口（m11-1404，2026-09-14）
+
+- ✅ **产品核保配置来源不可区分**：核保决策前经 `ProductUnderwritingConfigPort` 取产品核保策略，取不到时 adapter 三处兜底**一律返回同一个无来源标记的默认配置**（`surchargeAcceptable=true`、无金额阈值、无规则集编码）。后果有三：①「产品**没配**核保策略」与「产品域**取不到**配置」在系统内不可区分；② 二者又与「产品**显式配置**为允许加费」不可区分；③ 核保可能在**毫无产品策略依据**的情况下产出**加费承保**结论，且事后无从审计——事件里只有 `surchargeAcceptable=true`，看不出是产品配置还是兜底。
+  **修复**：新增来源枚举 `common/enums/ProductConfigSource`（`CONFIGURED`/`NOT_CONFIGURED`/`UNAVAILABLE`；按根规约 §3.4.2 落本域 `common`——它描述的是**本域取配置的处境**，非产品域的业务属性），随配置快照 → `DecideUnderwritingCommand` → `UnderwritingDecidedEvent` 全链传递；adapter 三处兜底分标 `NOT_CONFIGURED`（无产品编码，查询条件都不成立）与 `UNAVAILABLE`（调用失败或返回不可用）；编排器在 `!config.configured()` 时 `log.warn` 显式告警，使「本次决策无产品策略依据」同时落在**事件流**与**结构化日志**两个可检索通道。
+  🔴 **只显式化语义，不改判定**：三态下 `surchargeAcceptable` 仍为 `true`（存量兼容取值，`ProductUnderwritingConfig#defaultConfig` javadoc 明写「过渡期兼容决策、非业务判断」）——改值会令存量「加费承保」翻转为「拒保」，属破坏性变更。回归保护见 `ProductUnderwritingConfigTest#defaultConfigKeepsLegacyValues`。
+  🔴 **来源缺失从构造期堵死**：`ProductUnderwritingConfig` 紧凑构造器加 `Objects.requireNonNull(configSource, ...)`；`defaultConfig()` 无参版本删除、改为 `defaultConfig(ProductConfigSource)`，强制调用方逐次表态处境。
+  🔴 **跨域兼容已从调用方侧核验**：`UnderwritingDecidedEvent` 尾部追加 `configSource`，旧事件 JSON 无此字段时 Jackson 取 null；下游 policy 侧为 fastjson2 防腐 record（未声明字段自动忽略），同 dev-505 `reason` 尾部追加先例。**Axon 事件加字段只能尾部追加，不得改动既有字段顺序或类型**。
+  **测试**：domain 新增 `ProductUnderwritingConfigTest` 5 例（来源缺失拒绝构造 / 仅 `CONFIGURED` 计为有依据 / 兜底取值不变 / 规则集空白判定 / 枚举反查）；infra `ProductUnderwritingConfigAdapterTest` +4 例（成功路径 `CONFIGURED`、无产品编码 `NOT_CONFIGURED` 且不发远程调用、产品域返回失败 `UNAVAILABLE`、调用异常 `UNAVAILABLE`）；domain `UnderwritingSynchronousCommandTest` 增断言锁死**命令 → 事件**的来源透传。
+  **门禁**：underwriting 全域 `mvn -B clean install` 全绿——**134 例**（domain 41 / infrastructure 21 / query 8 / application 2 / web 17 / bootstrap 45，其中 archunit 43 例含 11 跳过）。
 
 ---
 

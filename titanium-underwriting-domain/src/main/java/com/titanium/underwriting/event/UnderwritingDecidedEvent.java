@@ -3,6 +3,7 @@ package com.titanium.underwriting.event;
 import java.time.LocalDateTime;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.valueobject.ExtraPremium;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -21,6 +22,12 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * 原因说明（拒保原因/转人工意见/加费原因），聚合回放时落 {@code rejectReason}/{@code reviewComments}。
  * 旧版本事件 JSON 无此字段，Jackson 反序列化时取 null，向后兼容。
  * </p>
+ * <p>
+ * {@code configSource}（m11-1404 新增）标明本次决策所依据的产品核保配置来源：{@code CONFIGURED} 表示
+ * 产品域确实返回了核保策略，{@code NOT_CONFIGURED}/{@code UNAVAILABLE} 表示按兜底默认配置决策（前者
+ * 「产品没配」、后者「取不到」）。此前二者与「产品显式允许加费」在事件里完全不可区分——核保为何产出
+ * 加费承保结论无从追溯。同为尾部追加，旧事件 JSON 无此字段时 Jackson 取 null，向后兼容。
+ * </p>
  *
  * @author wei.sun
  * @since 2026/6/23
@@ -38,6 +45,7 @@ public record UnderwritingDecidedEvent(
         LocalDateTime decidedAt,
         String decidedBy,
         String tenantId,
-        String reason
+        String reason,
+        ProductConfigSource configSource
 ) {
 }

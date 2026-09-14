@@ -76,6 +76,12 @@ public class UnderwritingDecisionOrchestrator {
                 : snapshot.productCode();
         ProductUnderwritingConfig config = productUnderwritingConfigPort.fetchConfig(effectiveProductCode,
                 command.tenantId());
+        if (!config.configured()) {
+            // 配置来源非 CONFIGURED 时显式告警：本次决策没有产品策略依据，surchargeAcceptable 取的是兜底值
+            log.warn("[核保决策] 无产品核保策略依据，按兜底默认配置决策: configSource={}, productCode={}, "
+                    + "underwritingId={}, surchargeAcceptable={}", config.configSource(), effectiveProductCode,
+                    command.underwritingId(), config.surchargeAcceptable());
+        }
 
         RuleUnderwritingDecision ruleDecision = null;
         if (config.ruleEngineEnabled()) {
@@ -88,7 +94,7 @@ public class UnderwritingDecisionOrchestrator {
 
         DecideUnderwritingCommand enriched = new DecideUnderwritingCommand(command.underwritingId(),
                 command.auditType(), command.decidedBy(), command.tenantId(), config.surchargeAcceptable(),
-                ruleDecision);
+                ruleDecision, config.configSource());
         return commandGateway.sendAndWait(enriched);
     }
 

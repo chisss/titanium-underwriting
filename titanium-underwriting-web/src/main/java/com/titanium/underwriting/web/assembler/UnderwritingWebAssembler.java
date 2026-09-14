@@ -97,9 +97,10 @@ public class UnderwritingWebAssembler {
      */
     public DecideUnderwritingCommand toCommand(String underwritingId, DecideUnderwritingDTO request,
                                                String tenantId) {
-        // surchargeAcceptable/ruleDecision 由 application 层编排器依产品核保配置与规则集执行结果填充（dev-505），web 侧置 null
+        // surchargeAcceptable/ruleDecision/configSource 由 application 层编排器依产品核保配置与规则集执行结果填充
+        // （dev-505 / m11-1404），web 侧置 null——命令在编排器派发前必经其充实，web 直连不构成合法路径
         return new DecideUnderwritingCommand(new UnderwritingId(underwritingId), toAuditType(request.getAuditType()),
-                request.getDecidedBy(), tenantId, null, null);
+                request.getDecidedBy(), tenantId, null, null, null);
     }
 
     // ========== 远程 DTO（api 契约）→ 领域命令（Provider 用） ==========
@@ -155,9 +156,10 @@ public class UnderwritingWebAssembler {
      */
     public DecideUnderwritingCommand toCommand(String underwritingId, DecideUnderwritingApiRequest request,
             String tenantId) {
-        // surchargeAcceptable/ruleDecision 由 application 层编排器依产品核保配置与规则集执行结果填充（dev-505），web 侧置 null
+        // surchargeAcceptable/ruleDecision/configSource 由 application 层编排器依产品核保配置与规则集执行结果填充
+        // （dev-505 / m11-1404），web 侧置 null——命令在编排器派发前必经其充实，provider 直连不构成合法路径
         return new DecideUnderwritingCommand(new UnderwritingId(underwritingId), toAuditType(request.getAuditType()),
-                request.getDecidedBy(), tenantId, null, null);
+                request.getDecidedBy(), tenantId, null, null, null);
     }
 
     // ========== 险种输入装配（分块判空 + 值对象内聚校验） ==========

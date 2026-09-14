@@ -27,6 +27,7 @@ import org.springframework.kafka.support.SendResult;
 import com.titanium.common.kafka.KafkaPublishException;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.common.constant.UnderwritingConstants;
+import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -150,6 +151,7 @@ class UnderwritingKafkaEventPublisherTest {
                 LocalDateTime.of(2026, 9, 11, 10, 0),
                 "UW_USER",
                 "TENANT_001",
-                null);
+                null,
+                ProductConfigSource.CONFIGURED);
     }
 }

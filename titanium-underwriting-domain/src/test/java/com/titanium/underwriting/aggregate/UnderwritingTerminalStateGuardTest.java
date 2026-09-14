@@ -16,6 +16,7 @@ import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
+import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
@@ -110,7 +111,7 @@ class UnderwritingTerminalStateGuardTest {
 
         fixture.given(createdEvent(), inputSubmittedEvent())
                 .when(new DecideUnderwritingCommand(UNDERWRITING_ID, UnderwritingEnum.AuditType.MANUAL, OPERATOR,
-                        TENANT_ID, true, rejectDecision))
+                        TENANT_ID, true, rejectDecision, ProductConfigSource.CONFIGURED))
                 .expectState(state -> assertEquals(DECLINE_REASON, state.getRejectReason(),
                         "拒保口径统一走 isRejected() 后，真实拒保状态 DECLINED 的原因必须落聚合，与读模型一致"));
     }
@@ -146,7 +147,7 @@ class UnderwritingTerminalStateGuardTest {
             UnderwritingEnum.ConclusionType conclusion, UnderwritingEnum.UnderwritingStatus newStatus, String reason) {
         return new UnderwritingDecidedEvent(UNDERWRITING_ID, PolicyId.of("POL-001"), riskLevel, conclusion,
                 UnderwritingEnum.AuditType.AUTOMATIC, UnderwritingEnum.UnderwritingStatus.PENDING, newStatus, 55,
-                null, LocalDateTime.now(), OPERATOR, TENANT_ID, reason);
+                null, LocalDateTime.now(), OPERATOR, TENANT_ID, reason, ProductConfigSource.CONFIGURED);
     }
 
     private UnderwriteCommand underwriteCommand() {
@@ -156,7 +157,7 @@ class UnderwritingTerminalStateGuardTest {
 
     private DecideUnderwritingCommand decideCommand() {
         return new DecideUnderwritingCommand(UNDERWRITING_ID, UnderwritingEnum.AuditType.MANUAL, OPERATOR, TENANT_ID,
-                true, null);
+                true, null, null);
     }
 
     private ManualReviewCommand manualReviewCommand() {

@@ -17,6 +17,7 @@ import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
+import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.event.UnderwritingCreatedEvent;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
@@ -78,7 +79,7 @@ class UnderwritingSynchronousCommandTest {
     void decideEmptyInputReturnsFinalStandardDecisionSynchronously() {
         UnderwritingInput emptyInput = UnderwritingInput.builder().build();
         DecideUnderwritingCommand decide = new DecideUnderwritingCommand(UNDERWRITING_ID,
-                UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true, null);
+                UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true, null, ProductConfigSource.CONFIGURED);
 
         fixture.given(createdEvent(), new UnderwritingInputSubmittedEvent(UNDERWRITING_ID, emptyInput,
                 LocalDateTime.now(), "system", TENANT_ID))
@@ -88,7 +89,8 @@ class UnderwritingSynchronousCommandTest {
                         event.underwritingId().equals(UNDERWRITING_ID)
                                 && event.riskLevel() == UnderwritingEnum.RiskLevel.STANDARD
                                 && event.conclusionType() == UnderwritingEnum.ConclusionType.ACCEPT
-                                && event.newStatus() == UnderwritingEnum.UnderwritingStatus.STANDARD)))
+                                && event.newStatus() == UnderwritingEnum.UnderwritingStatus.STANDARD
+                                && event.configSource() == ProductConfigSource.CONFIGURED)))
                 .expectEventsMatching(org.axonframework.test.matchers.Matchers.payloadsMatching(
                         org.axonframework.test.matchers.Matchers.exactSequenceOf(
                                 org.hamcrest.Matchers.instanceOf(UnderwritingDecidedEvent.class))));
@@ -101,7 +103,8 @@ class UnderwritingSynchronousCommandTest {
                 UnderwritingEnum.ConclusionType.EXCLUDED, UnderwritingEnum.RiskLevel.SUB_STANDARD,
                 UnderwritingEnum.UnderwritingStatus.EXCLUDED, null, "甲状腺结节除外责任承保");
         DecideUnderwritingCommand decide = new DecideUnderwritingCommand(UNDERWRITING_ID,
-                UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true, ruleDecision);
+                UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true, ruleDecision,
+                ProductConfigSource.CONFIGURED);
 
         fixture.given(createdEvent(), new UnderwritingInputSubmittedEvent(UNDERWRITING_ID, emptyInput,
                 LocalDateTime.now(), "system", TENANT_ID))
