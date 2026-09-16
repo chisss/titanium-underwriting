@@ -11,4 +11,6 @@
     <include file="classpath:liquibase/ddl/business_number_sequence_202609091100_weisun_ddl.sql"/>
     <include file="classpath:liquibase/ddl/underwriting_view_202609091100_weisun_ddl.sql"/>
     <include file="classpath:liquibase/ddl/underwriting_view_202609141000_weisun_ddl.sql"/>
+    <include file="classpath:liquibase/ddl/underwriting_view_202609161200_weisun_ddl.sql"/>
+    <include file="classpath:liquibase/dml/underwriting_backfill_202609161200_weisun_dml.sql"/>
 </databaseChangeLog>

@@ -1,7 +1,11 @@
 package com.titanium.underwriting.query.mapper;
 
+import java.time.Duration;
+
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
@@ -26,5 +30,23 @@ public interface UnderwritingQueryResultMapper {
      * @return 核保查询结果
      */
     @Mapping(target = "updatedAt", source = "updateTime")
+    @Mapping(target = "underwritingStartTime", source = "createdAt")
     UnderwritingQueryResult toQueryResult(UnderwritingView view);
+
+    /**
+     * 派生核保时效（小时）= 完成时间 − 开始时间（D-501-44）
+     * <p>
+     * 🔴 <b>不落库</b>：时效由两个时间戳派生，写成读模型列会与源字段漂移（源改了派生值不跟）。
+     * 二者任一缺失时不计算（保持空值，前端以 {@code -} 兜底），未决策的核保单即属此列。
+     * </p>
+     */
+    @AfterMapping
+    default void fillProcessingHours(@MappingTarget UnderwritingQueryResult result) {
+        if (result.getUnderwritingStartTime() == null || result.getUnderwritingCompletedTime() == null) {
+            return;
+        }
+        result.setProcessingHours(
+                (int) Duration.between(result.getUnderwritingStartTime(), result.getUnderwritingCompletedTime())
+                        .toHours());
+    }
 }

@@ -77,11 +77,17 @@ public interface UnderwritingViewMapper {
      * 结构化加费三字段在加费明细为空时经空安全转换返回 null，由 IGNORE 保持既有值。
      * 拒保/转人工状态由事件级 {@code @Named} 转换把规则引擎原因（dev-505 {@code reason}）写入
      * 拒保原因/审核意见，其余状态返回 null（IGNORE 保持既有值）。
+     * <p>
+     * D-501-44：{@code decidedAt}（决策时间）同时写入 {@code underwritingCompletedTime}，供列表「核保完成时间」
+     * 与详情「处理耗时」展示——该时间此前只用于聚合回放（{@code Underwriting.java} 的 {@code updateTime}），
+     * 读模型侧无列承接。
+     * </p>
      */
     @Mapping(target = "underwritingId", ignore = true)
     @Mapping(target = "policyId", ignore = true)
     @Mapping(target = "status", source = "newStatus")
     @Mapping(target = "updatedBy", source = "decidedBy")
+    @Mapping(target = "underwritingCompletedTime", source = "decidedAt")
     @Mapping(target = "rejectReason", source = "event", qualifiedByName = "rejectReasonOfDecided")
     @Mapping(target = "reviewComments", source = "event", qualifiedByName = "reviewCommentsOfDecided")
     @Mapping(target = "exclusionReason", source = "event", qualifiedByName = "exclusionReasonOfDecided")

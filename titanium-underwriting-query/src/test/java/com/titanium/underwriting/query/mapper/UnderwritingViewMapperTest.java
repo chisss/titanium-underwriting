@@ -13,10 +13,13 @@ import org.junit.jupiter.api.Test;
 
 import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.event.MaintenanceUnderwritingAssessedEvent;
+import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.query.view.UnderwritingView;
 import com.titanium.underwriting.valueobject.OccupationInfo;
+import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
 
@@ -105,5 +108,26 @@ class UnderwritingViewMapperTest {
         return new MaintenanceUnderwritingAssessedEvent(new UnderwritingId("UW-003"), "TENANT-001", "MT-003", "POL-003",
                 3L, "ITEM-003", "IDEM-003", "HASH-003", "RULE-V1", "MODEL-V1", conclusion, conditions, "条件承保",
                 LocalDateTime.parse("2026-09-14T09:00:00"), LocalDateTime.parse("2026-09-14T09:30:00"), "uw09");
+    }
+
+    /**
+     * D-501-44：决策时间必须落读模型 —— 该时间此前只服务于聚合回放（{@code Underwriting.updateTime}），
+     * 读模型无列承接，致列表「核保完成时间」与详情「处理耗时」恒显示 {@code -}。
+     */
+    @Test
+    void applyDecidedCarriesDecisionTimeIntoCompletedTimeColumn() {
+        UnderwritingView view = new UnderwritingView();
+
+        mapper.applyDecided(view, new UnderwritingDecidedEvent(new UnderwritingId("UW-004"), new PolicyId("POL-004"),
+                UnderwritingEnum.RiskLevel.STANDARD, UnderwritingEnum.ConclusionType.ACCEPT,
+                UnderwritingEnum.AuditType.AUTOMATIC, UnderwritingEnum.UnderwritingStatus.PENDING,
+                UnderwritingEnum.UnderwritingStatus.STANDARD, 0, null,
+                LocalDateTime.parse("2026-09-16T11:22:33"), "uw04", "TENANT-001", null,
+                ProductConfigSource.NOT_CONFIGURED));
+
+        assertEquals(LocalDateTime.parse("2026-09-16T11:22:33"), view.getUnderwritingCompletedTime(),
+                "决策时间必须落读模型，否则「核保完成时间」永久为空");
+        assertEquals(UnderwritingEnum.UnderwritingStatus.STANDARD, view.getStatus());
+        assertEquals("uw04", view.getUpdatedBy());
     }
 }

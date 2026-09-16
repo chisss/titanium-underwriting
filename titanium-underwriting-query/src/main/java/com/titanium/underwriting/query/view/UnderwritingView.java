@@ -107,6 +107,17 @@ public class UnderwritingView extends BaseView {
     @Column(name = "risk_score")
     private Integer                             riskScore;
 
+    /**
+     * 核保完成时间（D-501-44）
+     * <p>
+     * 来源决策事件 {@code UnderwritingDecidedEvent.decidedAt}，未出具结论时为空。
+     * <b>不设</b>独立的「核保开始时间」列——核保单创建即核保流程启动，开始时间由既有 {@code created_at}
+     * 在查询映射层承接（见 {@code UnderwritingQueryResultMapper}），避免同一时刻存两份。
+     * </p>
+     */
+    @Column(name = "underwriting_completed_time")
+    private LocalDateTime                       underwritingCompletedTime;
+
     /** 加费类型（UW-3：结构化加费，次标准体修改条件承保时填充） */
     @Column(name = "extra_premium_type", length = 50)
     private String                              extraPremiumType;

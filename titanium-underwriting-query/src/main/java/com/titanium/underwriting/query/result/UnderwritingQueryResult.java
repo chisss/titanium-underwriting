@@ -86,6 +86,22 @@ public class UnderwritingQueryResult {
     /** 更新人 */
     private String                              updatedBy;
 
+    /**
+     * 核保开始时间（D-501-44）
+     * <p>
+     * 口径为「核保流程启动时刻」= 核保单创建时间，映射自读模型 {@code created_at}（该域无独立的
+     * 「核保员受理」业务动作，受理即创建）。与 {@code createdAt} 同源异名：本字段对齐 Feign/Web
+     * 契约既有字段名，{@code createdAt} 保留给其它调用方。
+     * </p>
+     */
+    private LocalDateTime                       underwritingStartTime;
+
+    /** 核保完成时间（来源决策事件 {@code decidedAt}；未出具结论时为空） */
+    private LocalDateTime                       underwritingCompletedTime;
+
+    /** 核保时效（小时，= 完成时间 − 开始时间；二者任一为空时为空） */
+    private Integer                             processingHours;
+
     /** 租户ID */
     private String                              tenantId;
 
