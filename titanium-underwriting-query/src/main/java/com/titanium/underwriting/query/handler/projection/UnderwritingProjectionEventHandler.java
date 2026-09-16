@@ -6,6 +6,7 @@ import java.util.function.Consumer;
 import org.axonframework.config.ProcessingGroup;
 import org.axonframework.eventhandling.EventHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.titanium.common.jpa.BasePersistable;
@@ -45,7 +46,7 @@ public class UnderwritingProjectionEventHandler {
      * 投影核保创建事件：新建读模型记录，初始状态为待核保
      */
     @EventHandler
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void on(UnderwritingCreatedEvent event) {
         String underwritingId = event.underwritingId().value();
         log.info("[读模型投影] 核保创建: underwritingId={}, tenantId={}", underwritingId, event.tenantId());
@@ -63,7 +64,7 @@ public class UnderwritingProjectionEventHandler {
      * 投影核保状态变更事件：更新读模型状态；拒保/退回类状态记录原因，其余记录审核意见
      */
     @EventHandler
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void on(UnderwritingStatusChangedEvent event) {
         String underwritingId = event.underwritingId().value();
         log.info("[读模型投影] 核保状态变更: underwritingId={}, {} -> {}", underwritingId, event.oldStatus(),
@@ -77,7 +78,7 @@ public class UnderwritingProjectionEventHandler {
      * 投影核保决策事件：记录风险等级、结论、核保方式、评分及最终状态
      */
     @EventHandler
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void on(UnderwritingDecidedEvent event) {
         String underwritingId = event.underwritingId().value();
         log.info("[读模型投影] 核保决策: underwritingId={}, riskLevel={}, conclusion={}", underwritingId, event.riskLevel(),
@@ -95,7 +96,7 @@ public class UnderwritingProjectionEventHandler {
      * </p>
      */
     @EventHandler
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void on(UnderwritingInputSubmittedEvent event) {
         String underwritingId = event.underwritingId().value();
         log.info("[读模型投影] 核保输入提交: underwritingId={}, submittedBy={}", underwritingId, event.submittedBy());
@@ -112,7 +113,7 @@ public class UnderwritingProjectionEventHandler {
      * </p>
      */
     @EventHandler
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void on(MaintenanceUnderwritingAssessedEvent event) {
         String underwritingId = event.underwritingId().value();
         log.info("[读模型投影] 保全核保评估: underwritingId={}, maintenanceId={}, conclusion={}", underwritingId,
