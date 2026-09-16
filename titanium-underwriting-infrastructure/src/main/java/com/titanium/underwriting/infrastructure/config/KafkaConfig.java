@@ -3,6 +3,7 @@ package com.titanium.underwriting.infrastructure.config;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -16,6 +17,7 @@ import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
@@ -31,12 +33,16 @@ public class KafkaConfig {
 
     private final String bootstrapServers;
     private final String consumerGroupId;
+    /** 主题副本因子：**部署环境属性**，不是代码常量（见 {@link #underwritingDecidedTopic()} 的说明）。 */
+    private final int    topicReplicationFactor;
 
     /** 构造注入 Kafka 配置项（构造器注入优先，禁用字段注入） */
     public KafkaConfig(@Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
-                       @Value("${spring.kafka.consumer.group-id}") String consumerGroupId) {
+                       @Value("${spring.kafka.consumer.group-id}") String consumerGroupId,
+                       @Value("${kafka.topic.replication-factor:1}") int topicReplicationFactor) {
         this.bootstrapServers = bootstrapServers;
         this.consumerGroupId = consumerGroupId;
+        this.topicReplicationFactor = topicReplicationFactor;
     }
 
     /**
@@ -81,6 +87,22 @@ public class KafkaConfig {
     }
 
     /**
+     * Kafka Admin：消费本类声明的 {@link NewTopic} Bean 并由其在 broker 上创建主题。
+     * <p>🔴 D-501-27：本域依赖裸 {@code spring-kafka}（自动配置模块 {@code spring-boot-kafka}
+     * 不在类路径，见 {@link #producerFactory()} 说明），{@code KafkaAdmin} 从未被注册 ——
+     * 下方 {@code underwritingDecidedTopic} 声明<b>静默失效</b>，broker 上的
+     * {@code underwriting-decided} 实为生产者首次发送时 auto-create 所建，分区数不受本域掌控。
+     * 实测佐证：声明 {@code partitions(3).replicas(2)}，broker 上实为 <b>1 分区 1 副本</b>。
+     * 对齐 billing / claim / payment / regulatory 同名样板。</p>
+     */
+    @Bean
+    public KafkaAdmin kafkaAdmin() {
+        Map<String, Object> configs = new HashMap<>();
+        configs.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        return new KafkaAdmin(configs);
+    }
+
+    /**
      * 创建Kafka消费者配置
      * @return 消费者配置
      */
@@ -115,6 +137,12 @@ public class KafkaConfig {
      * 同投保单事件的落分区与保序性也就无从谈起。
      * </p>
      * <p>
+     * 🔴 <b>D-501-27 实测佐证</b>：上述「分区数不可控」并非假设，而是<b>已发生的事实</b> ——
+     * 本域缺 {@code KafkaAdmin}（见 {@link #kafkaAdmin()}），本声明长期静默失效，
+     * broker 上该主题实为生产者首发送时 auto-create 所建，<b>1 分区 1 副本</b>（声明为 3 分区）。
+     * 修复后由 KafkaAdmin 接管创建与扩容，分区数归位。
+     * </p>
+     * <p>
      * 🔴 原 {@code underwritingCreatedTopic} / {@code underwritingStatusChangedTopic} 两个 Bean
      * （连同其常量 {@code TOPIC_UNDERWRITING_CREATED}/{@code TOPIC_UNDERWRITING_STATUS_CHANGED}）
      * 建的主题自建起无任何发布点、亦无消费者，属死主题，已删除（m5-903）。
@@ -126,7 +154,7 @@ public class KafkaConfig {
     public NewTopic underwritingDecidedTopic() {
         return TopicBuilder.name(UnderwritingConstants.TOPIC_UNDERWRITING_DECIDED)
                 .partitions(3)
-                .replicas(2)
+                .replicas(topicReplicationFactor)
                 .build();
     }
 }
