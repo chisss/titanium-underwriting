@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -178,9 +179,11 @@ public class UnderwritingController {
                 UnderwritingEnum.UnderwritingType.fromCode(underwritingType);
         UnderwritingEnum.RiskLevel riskLevelEnum =
                 UnderwritingEnum.RiskLevel.fromCode(riskLevel);
+        // 默认排序：申请时间（业务创建时间，即列表页展示的「申请时间」列）倒序 + 主键第二排序键，保证分页稳定
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by("underwritingId"));
         Page<UnderwritingQueryResult> results = underwritingQueryAppService.findUnderwritingsByMultipleConditions(
                 statusEnum, typeEnum, riskLevelEnum, null, null, startTime, endTime,
-                PageRequest.of(page, size), tenantId);
+                PageRequest.of(page, size, sort), tenantId);
         return ResponseEntity.ok(results.map(underwritingWebMapper::toVO));
     }
 
