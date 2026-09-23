@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.titanium.common.context.RequestContextHolder;
 import com.titanium.underwriting.api.MaintenanceUnderwritingApi;
 import com.titanium.underwriting.api.request.maintenance.AssessMaintenanceUnderwritingRequest;
 import com.titanium.underwriting.api.response.maintenance.MaintenanceUnderwritingResponse;
@@ -24,9 +25,8 @@ public class MaintenanceUnderwritingApiProvider implements MaintenanceUnderwriti
 
     @Override
     public ResponseEntity<MaintenanceUnderwritingResponse> assess(
-            AssessMaintenanceUnderwritingRequest request,
-            String tenantId) {
-        AssessMaintenanceUnderwritingCommand command = maintenanceUnderwritingWebMapper.toCommand(request, tenantId);
+            AssessMaintenanceUnderwritingRequest request) {
+        AssessMaintenanceUnderwritingCommand command = maintenanceUnderwritingWebMapper.toCommand(request, RequestContextHolder.requireTenantId());
         return ResponseEntity.ok(
                 maintenanceUnderwritingWebMapper.toResponse(underwritingCommandService.assessMaintenance(command)));
     }

@@ -11,6 +11,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import com.titanium.common.context.RequestContextHolder;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
@@ -59,6 +62,17 @@ class UnderwritingApiProviderTest {
     @InjectMocks
     private UnderwritingApiProvider     provider;
 
+    @BeforeEach
+    void setUp() {
+        // 契约实现已改为从请求上下文取租户（不再由入参显式传递），故测试须先建立租户上下文
+        RequestContextHolder.setTenantId(TENANT_ID);
+    }
+
+    @AfterEach
+    void tearDown() {
+        RequestContextHolder.clear();
+    }
+
     @Test
     void writeApisDoNotReadAsynchronousProjection() {
         CreateUnderwritingCommand createCommand = mock(CreateUnderwritingCommand.class);
@@ -76,12 +90,12 @@ class UnderwritingApiProviderTest {
                 .thenReturn(decideCommand);
 
         assertEquals(HttpStatus.CREATED,
-                provider.createUnderwriting(new CreateUnderwritingRequest(), TENANT_ID).getStatusCode());
-        assertEquals(HttpStatus.OK, provider.underwrite("UW-001", new UnderwriteRequest(), TENANT_ID).getStatusCode());
+                provider.createUnderwriting(new CreateUnderwritingRequest()).getStatusCode());
+        assertEquals(HttpStatus.OK, provider.underwrite("UW-001", new UnderwriteRequest()).getStatusCode());
         assertEquals(HttpStatus.OK,
-                provider.submitInput("UW-001", new SubmitUnderwritingInputApiRequest(), TENANT_ID).getStatusCode());
+                provider.submitInput("UW-001", new SubmitUnderwritingInputApiRequest()).getStatusCode());
         assertEquals(HttpStatus.OK,
-                provider.decide("UW-001", new DecideUnderwritingApiRequest(), TENANT_ID).getStatusCode());
+                provider.decide("UW-001", new DecideUnderwritingApiRequest()).getStatusCode());
 
         verifyNoInteractions(queryService);
     }
@@ -94,8 +108,7 @@ class UnderwritingApiProviderTest {
                 any(Pageable.class), eq(TENANT_ID))).thenReturn(new PageImpl<>(List.of(result)));
         when(mapper.toResponse(result)).thenReturn(response);
 
-        ResponseEntity<List<UnderwritingResponse>> entity = provider.getUnderwritingsByStatus("PENDING", 0, 20,
-                TENANT_ID);
+        ResponseEntity<List<UnderwritingResponse>> entity = provider.getUnderwritingsByStatus("PENDING", 0, 20);
 
         assertEquals(List.of(response), entity.getBody(), "空桩已废：必须回读模型当页内容并按契约映射为 Response");
     }
@@ -105,7 +118,7 @@ class UnderwritingApiProviderTest {
         when(queryService.findUnderwritingsByMultipleConditions(isNull(), isNull(), isNull(), isNull(), isNull(),
                 isNull(), isNull(), any(Pageable.class), eq(TENANT_ID))).thenReturn(Page.empty());
 
-        ResponseEntity<List<UnderwritingResponse>> entity = provider.getAllUnderwritings(0, 20, TENANT_ID);
+        ResponseEntity<List<UnderwritingResponse>> entity = provider.getAllUnderwritings(0, 20);
 
         assertEquals(List.of(), entity.getBody());
     }
@@ -115,7 +128,7 @@ class UnderwritingApiProviderTest {
         when(queryService.findUnderwritingsByStatus(any(UnderwritingEnum.UnderwritingStatus.class),
                 any(Pageable.class), any(String.class))).thenReturn(Page.empty());
 
-        provider.getUnderwritingsByStatus("PENDING", -1, 100000, TENANT_ID);
+        provider.getUnderwritingsByStatus("PENDING", -1, 100000);
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(queryService).findUnderwritingsByStatus(any(UnderwritingEnum.UnderwritingStatus.class), captor.capture(),

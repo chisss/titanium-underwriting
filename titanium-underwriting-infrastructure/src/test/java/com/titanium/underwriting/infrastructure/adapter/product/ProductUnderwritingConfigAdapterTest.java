@@ -27,7 +27,7 @@ class ProductUnderwritingConfigAdapterTest {
     @Test
     void shouldQueryProductConfigurationByCode() {
         ProductApi productApi = mock(ProductApi.class);
-        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1", "tenant-a"))
+        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1"))
                 .thenReturn(ApiResponse.success(new UnderwritingConfigResponse(null, null,
                         new BigDecimal("500000"), List.of(), null, false, false, null)));
         ProductUnderwritingConfigAdapter adapter = new ProductUnderwritingConfigAdapter(productApi);
@@ -37,13 +37,13 @@ class ProductUnderwritingConfigAdapterTest {
         assertEquals(false, config.surchargeAcceptable());
         assertEquals(new BigDecimal("500000"), config.manualReviewAmountThreshold());
         assertNull(config.ruleSetCode());
-        verify(productApi).getUnderwritingConfigByCode("TERM_LIFE_V1", "tenant-a");
+        verify(productApi).getUnderwritingConfigByCode("TERM_LIFE_V1");
     }
 
     @Test
     void shouldResolveRuleSetCodeFromExplicitField() {
         ProductApi productApi = mock(ProductApi.class);
-        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1", "tenant-a"))
+        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1"))
                 .thenReturn(ApiResponse.success(new UnderwritingConfigResponse(null, null,
                         new BigDecimal("500000"), List.of(), null, false, false, "UW_STD_001")));
         ProductUnderwritingConfigAdapter adapter = new ProductUnderwritingConfigAdapter(productApi);
@@ -57,7 +57,7 @@ class ProductUnderwritingConfigAdapterTest {
     void shouldResolveRuleSetCodeFromLegacyAutoApprovalCondition() {
         ProductApi productApi = mock(ProductApi.class);
         // dev-505 向后兼容：历史配置把规则集编码放在 autoApprovalCondition 的 "ruleSet:" 前缀中
-        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1", "tenant-a"))
+        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1"))
                 .thenReturn(ApiResponse.success(new UnderwritingConfigResponse(null, "ruleSet:UW_LEGACY_001",
                         new BigDecimal("500000"), List.of(), null, false, false, null)));
         ProductUnderwritingConfigAdapter adapter = new ProductUnderwritingConfigAdapter(productApi);
@@ -71,7 +71,7 @@ class ProductUnderwritingConfigAdapterTest {
     @DisplayName("成功路径：来源标记为 CONFIGURED，取值可信")
     void shouldMarkSourceAsConfiguredOnSuccess() {
         ProductApi productApi = mock(ProductApi.class);
-        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1", "tenant-a"))
+        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1"))
                 .thenReturn(ApiResponse.success(new UnderwritingConfigResponse(null, null,
                         new BigDecimal("500000"), List.of(), null, true, false, "UW_STD_001")));
         ProductUnderwritingConfigAdapter adapter = new ProductUnderwritingConfigAdapter(productApi);
@@ -102,7 +102,7 @@ class ProductUnderwritingConfigAdapterTest {
     @DisplayName("产品域返回不可用：来源标记为 UNAVAILABLE（「取不到」），与「没配」可区分")
     void shouldMarkUnavailableWhenProductReturnsFailure() {
         ProductApi productApi = mock(ProductApi.class);
-        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1", "tenant-a"))
+        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1"))
                 .thenReturn(ApiResponse.error(SystemErrorCode.RESOURCE_NOT_FOUND));
         ProductUnderwritingConfigAdapter adapter = new ProductUnderwritingConfigAdapter(productApi);
 
@@ -117,7 +117,7 @@ class ProductUnderwritingConfigAdapterTest {
     @DisplayName("产品域调用异常：来源标记为 UNAVAILABLE，核保流程不被阻断")
     void shouldMarkUnavailableWhenProductCallThrows() {
         ProductApi productApi = mock(ProductApi.class);
-        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1", "tenant-a"))
+        when(productApi.getUnderwritingConfigByCode("TERM_LIFE_V1"))
                 .thenThrow(new IllegalStateException("product service down"));
         ProductUnderwritingConfigAdapter adapter = new ProductUnderwritingConfigAdapter(productApi);
 

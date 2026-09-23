@@ -20,10 +20,9 @@ public interface FeatureCenterPort {
      * 不阻断整体流程（特征字典属丰富化输入，规则引擎 G13 变量预检是最终防线）。
      * </p>
      *
-     * @param tenantId     租户ID
      * @param featureCodes 特征编码清单（如产品配置/规则集变量中引用的特征）
      * @param rawInput     原始核保输入上下文（供特征直接取值或派生求值）
      * @return 特征编码 → 特征值 映射（提取失败的特征不包含在结果中）
      */
-    Map<String, Object> extractFeatures(String tenantId, List<String> featureCodes, Map<String, Object> rawInput);
+    Map<String, Object> extractFeatures(List<String> featureCodes, Map<String, Object> rawInput);
 }

@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import com.titanium.common.context.RequestContext;
+import com.titanium.common.context.RequestContextHolder;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
 import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
@@ -66,6 +69,10 @@ class UnderwritingControllerTest {
 
     @BeforeEach
     void setUp() {
+        // m18：租户改由请求上下文承载，控制器不再以 @RequestHeader 形参接收；
+        // 无 Spring 上下文时 RequestContextHolder 是纯 ThreadLocal，直接置入即可
+        RequestContextHolder.set(RequestContext.ofTenant("tenant123"));
+
         mockResult = new UnderwritingQueryResult();
         mockResult.setUnderwritingId("UW202401001");
         mockResult.setPolicyId("POL202401001");
@@ -75,6 +82,12 @@ class UnderwritingControllerTest {
         mockVO.setPolicyId("POL202401001");
 
         mockRequest = new CreateUnderwritingDTO();
+    }
+
+    @AfterEach
+    void tearDown() {
+        // 线程池复用线程上残留身份会造成跨用例串台
+        RequestContextHolder.clear();
     }
 
     @Test
@@ -91,7 +104,7 @@ class UnderwritingControllerTest {
         when(underwritingWebMapper.toVO(commandResponse)).thenReturn(mockVO);
 
         // When
-        ResponseEntity<UnderwritingVO> response = underwritingController.createUnderwriting(mockRequest, "tenant123");
+        ResponseEntity<UnderwritingVO> response = underwritingController.createUnderwriting(mockRequest);
 
         // Then
         assertNotNull(response);
@@ -110,8 +123,7 @@ class UnderwritingControllerTest {
         when(underwritingWebMapper.toVO(mockResult)).thenReturn(mockVO);
 
         // When
-        ResponseEntity<UnderwritingVO> response = underwritingController.getUnderwritingById("UW202401001",
-                "tenant123");
+        ResponseEntity<UnderwritingVO> response = underwritingController.getUnderwritingById("UW202401001");
 
         // Then
         assertNotNull(response);
@@ -131,7 +143,7 @@ class UnderwritingControllerTest {
 
         // When
         ResponseEntity<Page<UnderwritingVO>> response = underwritingController.searchUnderwritings(
-                null, "NEW_BUSINESS", null, null, null, 0, 10, "tenant123");
+                null, "NEW_BUSINESS", null, null, null, 0, 10);
 
         // Then
         assertNotNull(response);
@@ -152,7 +164,7 @@ class UnderwritingControllerTest {
 
         // When
         ResponseEntity<Page<UnderwritingVO>> response = underwritingController.searchUnderwritings(
-                "UNKNOWN_STATUS", "UNKNOWN_TYPE", null, null, null, 0, 10, "tenant123");
+                "UNKNOWN_STATUS", "UNKNOWN_TYPE", null, null, null, 0, 10);
 
         // Then
         assertNotNull(response);

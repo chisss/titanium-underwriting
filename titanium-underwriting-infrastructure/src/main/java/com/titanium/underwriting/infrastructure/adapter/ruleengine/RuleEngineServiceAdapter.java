@@ -54,7 +54,7 @@ public class RuleEngineServiceAdapter implements RuleEngineServicePort {
         log.info("[规则引擎] 执行规则集: ruleSetCode={}, tenantId={}, businessId={}, variables={}", ruleSetCode,
                 tenantId, businessId, context != null ? context.keySet() : null);
         try {
-            ApiResponse<RuleExecutionResultResponse> response = ruleEngineApi.execute(ruleSetCode, context, tenantId,
+            ApiResponse<RuleExecutionResultResponse> response = ruleEngineApi.execute(ruleSetCode, context,
                     businessId, BUSINESS_TYPE);
             if (response == null || !response.isSuccess() || response.getData() == null) {
                 String message = response != null ? response.getMessage() : "规则引擎无响应";

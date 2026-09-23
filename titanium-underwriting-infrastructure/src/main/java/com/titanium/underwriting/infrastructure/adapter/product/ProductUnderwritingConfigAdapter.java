@@ -44,7 +44,7 @@ public class ProductUnderwritingConfigAdapter implements ProductUnderwritingConf
             return ProductUnderwritingConfig.defaultConfig(ProductConfigSource.NOT_CONFIGURED);
         }
         try {
-            ApiResponse<UnderwritingConfigResponse> response = productApi.getUnderwritingConfigByCode(productCode, tenantId);
+            ApiResponse<UnderwritingConfigResponse> response = productApi.getUnderwritingConfigByCode(productCode);
             if (response == null || !response.isSuccess() || response.getData() == null) {
                 log.warn("[核保配置] 产品核保配置不可用，按默认配置决策: configSource={}, productCode={}",
                         ProductConfigSource.UNAVAILABLE, productCode);

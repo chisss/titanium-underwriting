@@ -13,11 +13,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.titanium.common.context.RequestContextHolder;
 import com.titanium.metadata.enums.BaseEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.response.underwriting.UnderwritingStatisticsResponse;
@@ -69,12 +69,11 @@ public class UnderwritingController {
      * 创建核保
      *
      * @param request  创建核保请求
-     * @param tenantId 租户ID
      * @return 创建的核保VO
      */
     @PostMapping
-    public ResponseEntity<UnderwritingVO> createUnderwriting(@RequestBody CreateUnderwritingDTO request,
-                                                             @RequestHeader("X-Tenant-ID") String tenantId) {
+    public ResponseEntity<UnderwritingVO> createUnderwriting(@RequestBody CreateUnderwritingDTO request) {
+        String tenantId = RequestContextHolder.requireTenantId();
         CreateUnderwritingCommand command = underwritingWebAssembler.toCommand(request, tenantId);
         // 返回编号后的命令（caseNo 已由 application 层发号填充），保证创建响应回显核保案号
         CreateUnderwritingCommand numbered = underwritingCommandService.createUnderwriting(command);
@@ -86,12 +85,11 @@ public class UnderwritingController {
      * 根据ID查询核保
      *
      * @param underwritingId 核保ID
-     * @param tenantId       租户ID
      * @return 核保VO
      */
     @GetMapping("/{underwritingId}")
-    public ResponseEntity<UnderwritingVO> getUnderwritingById(@PathVariable String underwritingId,
-                                                              @RequestHeader("X-Tenant-ID") String tenantId) {
+    public ResponseEntity<UnderwritingVO> getUnderwritingById(@PathVariable String underwritingId) {
+        String tenantId = RequestContextHolder.requireTenantId();
         return ResponseEntity.ok(queryVO(underwritingId, tenantId));
     }
 
@@ -100,13 +98,12 @@ public class UnderwritingController {
      *
      * @param underwritingId 核保ID
      * @param request        核保请求
-     * @param tenantId       租户ID
      * @return 更新后的核保VO
      */
     @PutMapping("/{underwritingId}/underwrite")
     public ResponseEntity<UnderwritingVO> underwrite(@PathVariable String underwritingId,
-                                                     @RequestBody UnderwriteDTO request,
-                                                     @RequestHeader("X-Tenant-ID") String tenantId) {
+                                                     @RequestBody UnderwriteDTO request) {
+        String tenantId = RequestContextHolder.requireTenantId();
         UnderwriteCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingStatusChangedEvent event = underwritingCommandService.underwrite(command);
         return ResponseEntity.ok(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
@@ -117,13 +114,12 @@ public class UnderwritingController {
      *
      * @param underwritingId 核保ID
      * @param request        核保输入请求
-     * @param tenantId       租户ID
      * @return 更新后的核保VO
      */
     @PutMapping("/{underwritingId}/inputs")
     public ResponseEntity<UnderwritingVO> submitInput(@PathVariable String underwritingId,
-                                                      @RequestBody SubmitUnderwritingInputDTO request,
-                                                      @RequestHeader("X-Tenant-ID") String tenantId) {
+                                                      @RequestBody SubmitUnderwritingInputDTO request) {
+        String tenantId = RequestContextHolder.requireTenantId();
         SubmitUnderwritingInputCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingInputSubmittedEvent event = underwritingCommandService.submitInput(command);
         return ResponseEntity.ok(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
@@ -134,13 +130,12 @@ public class UnderwritingController {
      *
      * @param underwritingId 核保ID
      * @param request        核保决策请求
-     * @param tenantId       租户ID
      * @return 决策后的核保VO
      */
     @PutMapping("/{underwritingId}/decide")
     public ResponseEntity<UnderwritingVO> decide(@PathVariable String underwritingId,
-                                                 @RequestBody DecideUnderwritingDTO request,
-                                                 @RequestHeader("X-Tenant-ID") String tenantId) {
+                                                 @RequestBody DecideUnderwritingDTO request) {
+        String tenantId = RequestContextHolder.requireTenantId();
         DecideUnderwritingCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingDecidedEvent event = underwritingCommandService.decide(command);
         return ResponseEntity.ok(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
@@ -160,7 +155,6 @@ public class UnderwritingController {
      * @param endTime         申请时间上限（可选，ISO-8601）
      * @param page            页码（默认0）
      * @param size            每页大小（默认10）
-     * @param tenantId        租户ID
      * @return 核保VO分页结果
      */
     @GetMapping("/search")
@@ -171,8 +165,8 @@ public class UnderwritingController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestHeader("X-Tenant-ID") String tenantId) {
+            @RequestParam(defaultValue = "10") int size) {
+        String tenantId = RequestContextHolder.requireTenantId();
         UnderwritingEnum.UnderwritingStatus statusEnum =
                 BaseEnum.fromCode(UnderwritingEnum.UnderwritingStatus.class, status);
         UnderwritingEnum.UnderwritingType typeEnum =
@@ -193,15 +187,14 @@ public class UnderwritingController {
      * @param underwriterId 核保员ID（可选，不传则返回所有待处理任务）
      * @param page          页码（默认0）
      * @param size          每页大小（默认10）
-     * @param tenantId      租户ID
      * @return 待处理核保VO分页结果
      */
     @GetMapping("/pending")
     public ResponseEntity<Page<UnderwritingVO>> getPendingUnderwritingTasks(
             @RequestParam(required = false) String underwriterId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestHeader("X-Tenant-ID") String tenantId) {
+            @RequestParam(defaultValue = "10") int size) {
+        String tenantId = RequestContextHolder.requireTenantId();
         Page<UnderwritingQueryResult> results = underwritingQueryAppService.findPendingUnderwritingTasks(
                 underwriterId, null, PageRequest.of(page, size), tenantId);
         return ResponseEntity.ok(results.map(underwritingWebMapper::toVO));
@@ -214,12 +207,12 @@ public class UnderwritingController {
      * 不传时间范围则统计全部。
      * </p>
      *
-     * @param tenantId 租户ID
      * @return 核保统计结果
      */
     @GetMapping("/statistics")
     public ResponseEntity<UnderwritingStatisticsResponse> getStatistics(
-            @RequestHeader("X-Tenant-ID") String tenantId) {
+            ) {
+        String tenantId = RequestContextHolder.requireTenantId();
         UnderwritingStatisticsResult result = underwritingQueryAppService
                 .getUnderwritingStatistics(null, null, tenantId);
         return ResponseEntity.ok(underwritingStatisticsWebMapper.toResponse(result));

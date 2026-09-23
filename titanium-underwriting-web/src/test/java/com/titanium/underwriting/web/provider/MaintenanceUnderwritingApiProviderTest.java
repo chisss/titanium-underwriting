@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.titanium.common.context.RequestContextInterceptor;
 import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
@@ -39,7 +40,10 @@ class MaintenanceUnderwritingApiProviderTest {
                 LocalDateTime.parse("2026-08-25T12:00:00"),
                 LocalDateTime.parse("2026-08-25T12:00:00"), "maintenance-service"));
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new MaintenanceUnderwritingApiProvider(commandService,
-                Mappers.getMapper(MaintenanceUnderwritingWebMapper.class))).build();
+                        Mappers.getMapper(MaintenanceUnderwritingWebMapper.class)))
+                // 租户已不再由契约入参显式传递，改由 RequestContextInterceptor 从请求头填充上下文供 provider 读取
+                .addInterceptors(new RequestContextInterceptor())
+                .build();
 
         MvcResult result = mockMvc.perform(post("/underwriting/api/maintenance-assessments")
                         .header("X-Tenant-ID", "tenant-1")

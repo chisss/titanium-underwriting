@@ -32,14 +32,14 @@ public class FeatureCenterServiceAdapter implements FeatureCenterPort {
     private final FeatureCenterApi featureCenterApi;
 
     @Override
-    public Map<String, Object> extractFeatures(String tenantId, List<String> featureCodes,
+    public Map<String, Object> extractFeatures(List<String> featureCodes,
                                                Map<String, Object> rawInput) {
         Map<String, Object> features = new HashMap<>();
         if (featureCodes == null || featureCodes.isEmpty()) {
             return features;
         }
         for (String featureCode : featureCodes) {
-            extractOne(tenantId, featureCode, rawInput, features);
+            extractOne(featureCode, rawInput, features);
         }
         return features;
     }
@@ -47,18 +47,17 @@ public class FeatureCenterServiceAdapter implements FeatureCenterPort {
     /**
      * 提取单个特征值并放入结果映射（失败告警跳过，不抛出）。
      *
-     * @param tenantId    租户ID
      * @param featureCode 特征编码
      * @param rawInput    原始核保输入上下文
      * @param features    结果映射（featureCode → value）
      */
-    private void extractOne(String tenantId, String featureCode, Map<String, Object> rawInput,
+    private void extractOne(String featureCode, Map<String, Object> rawInput,
                             Map<String, Object> features) {
         try {
             FeatureExtractRequest request = new FeatureExtractRequest();
             request.setFeatureCode(featureCode);
             request.setContext(rawInput);
-            ApiResponse<FeatureValueResponse> response = featureCenterApi.extract(request, tenantId);
+            ApiResponse<FeatureValueResponse> response = featureCenterApi.extract(request);
             if (response != null && response.isSuccess() && response.getData() != null) {
                 features.put(featureCode, response.getData().getValue());
             } else {
