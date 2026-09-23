@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 
 /**
  * 死信队列监控 + 重试服务（CQRS 读侧最终一致性 + 跨域出站可靠性保障）
@@ -52,6 +53,7 @@ public class DeadLetterQueueService {
      * DLQ 移除，失败则保留待下次重试。
      * </p>
      */
+        @SchedulerLock(name = "underwriting-retryDeadLetterEvents")
     @Scheduled(fixedRate = DLQ_RETRY_INTERVAL_MS)
     public void retryDeadLetterEvents() {
         PROCESSING_GROUPS.forEach(this::retryGroup);
