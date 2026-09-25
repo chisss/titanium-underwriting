@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
@@ -20,18 +22,23 @@ import lombok.Data;
 public class SubmitUnderwritingInputDTO {
 
     @Schema(description = "提交人")
+    @Size(max = 64)
     private String submittedBy;
 
     @Schema(description = "健康告知（寿险/重疾/医疗），不适用则为空")
+    @Valid
     private HealthDeclarationInput healthDeclaration;
 
     @Schema(description = "体检报告（高保额寿险/重疾），不适用则为空")
+    @Valid
     private PhysicalExamInput physicalExamResult;
 
     @Schema(description = "职业信息（意外险/定期寿险），不适用则为空")
+    @Valid
     private OccupationInput occupationInfo;
 
     @Schema(description = "车辆风险信息（车险），不适用则为空")
+    @Valid
     private VehicleRiskInput vehicleRiskInfo;
 
     /** 健康告知输入 */

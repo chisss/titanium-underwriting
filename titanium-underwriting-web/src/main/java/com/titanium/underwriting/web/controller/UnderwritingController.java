@@ -42,6 +42,7 @@ import com.titanium.underwriting.web.mapper.UnderwritingStatisticsWebMapper;
 import com.titanium.underwriting.web.mapper.UnderwritingWebMapper;
 import com.titanium.underwriting.web.vo.UnderwritingVO;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -72,7 +73,7 @@ public class UnderwritingController {
      * @return 创建的核保VO
      */
     @PostMapping
-    public ResponseEntity<UnderwritingVO> createUnderwriting(@RequestBody CreateUnderwritingDTO request) {
+    public ResponseEntity<UnderwritingVO> createUnderwriting(@Valid @RequestBody CreateUnderwritingDTO request) {
         String tenantId = RequestContextHolder.requireTenantId();
         CreateUnderwritingCommand command = underwritingWebAssembler.toCommand(request, tenantId);
         // 返回编号后的命令（caseNo 已由 application 层发号填充），保证创建响应回显核保案号
@@ -102,7 +103,7 @@ public class UnderwritingController {
      */
     @PutMapping("/{underwritingId}/underwrite")
     public ResponseEntity<UnderwritingVO> underwrite(@PathVariable String underwritingId,
-                                                     @RequestBody UnderwriteDTO request) {
+                                                     @Valid @RequestBody UnderwriteDTO request) {
         String tenantId = RequestContextHolder.requireTenantId();
         UnderwriteCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingStatusChangedEvent event = underwritingCommandService.underwrite(command);
@@ -118,7 +119,7 @@ public class UnderwritingController {
      */
     @PutMapping("/{underwritingId}/inputs")
     public ResponseEntity<UnderwritingVO> submitInput(@PathVariable String underwritingId,
-                                                      @RequestBody SubmitUnderwritingInputDTO request) {
+                                                      @Valid @RequestBody SubmitUnderwritingInputDTO request) {
         String tenantId = RequestContextHolder.requireTenantId();
         SubmitUnderwritingInputCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingInputSubmittedEvent event = underwritingCommandService.submitInput(command);
@@ -134,7 +135,7 @@ public class UnderwritingController {
      */
     @PutMapping("/{underwritingId}/decide")
     public ResponseEntity<UnderwritingVO> decide(@PathVariable String underwritingId,
-                                                 @RequestBody DecideUnderwritingDTO request) {
+                                                 @Valid @RequestBody DecideUnderwritingDTO request) {
         String tenantId = RequestContextHolder.requireTenantId();
         DecideUnderwritingCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingDecidedEvent event = underwritingCommandService.decide(command);

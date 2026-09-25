@@ -1,6 +1,7 @@
 package com.titanium.underwriting.web.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
@@ -16,8 +17,10 @@ import lombok.Data;
 public class DecideUnderwritingDTO {
 
     @Schema(description = "核保方式：AUTOMATIC(自动)/MANUAL(人工)/HYBRID(混合)", example = "AUTOMATIC")
+    @Size(max = 64)
     private String auditType;
 
     @Schema(description = "决策人")
+    @Size(max = 64)
     private String decidedBy;
 }
