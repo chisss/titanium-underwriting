@@ -57,7 +57,7 @@ public class ProductUnderwritingConfigAdapter implements ProductUnderwritingConf
                     ProductConfigSource.CONFIGURED);
         } catch (Exception ex) {
             log.warn("[核保配置] 查询产品核保配置异常，按默认配置决策: configSource={}, productCode={}, error={}",
-                    ProductConfigSource.UNAVAILABLE, productCode, ex.getMessage());
+                    ProductConfigSource.UNAVAILABLE, productCode, ex.getMessage(), ex);
             return ProductUnderwritingConfig.defaultConfig(ProductConfigSource.UNAVAILABLE);
         }
     }

@@ -66,7 +66,7 @@ public class FeatureCenterServiceAdapter implements FeatureCenterPort {
             }
         } catch (Exception ex) {
             log.warn("[特征中心] 特征提取失败，跳过该特征（规则引擎变量预检兜底）: featureCode={}, error={}",
-                    featureCode, ex.getMessage());
+                    featureCode, ex.getMessage(), ex);
         }
     }
 }
