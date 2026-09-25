@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.titanium.common.context.RequestContextHolder;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.metadata.response.ApiResponse;
 import com.titanium.underwriting.api.UnderwritingApi;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
@@ -61,62 +62,64 @@ public class UnderwritingApiProvider implements UnderwritingApi {
     private final UnderwritingWebMapper       underwritingWebMapper;
 
     @Override
-    public ResponseEntity<UnderwritingResponse> createUnderwriting(CreateUnderwritingRequest request) {
+    public ResponseEntity<ApiResponse<UnderwritingResponse>> createUnderwriting(CreateUnderwritingRequest request) {
         // 协议转换：远程 Request → 领域命令，发命令后回查读模型组装对外 Response
         CreateUnderwritingCommand command = underwritingWebAssembler.toCommand(request, RequestContextHolder.requireTenantId());
         underwritingCommandService.createUnderwriting(command);
-        return new ResponseEntity<>(underwritingWebMapper.toResponse(command), HttpStatus.CREATED);
+        // 保留 201 Created 状态语义（契约唯一需要状态码控制的端点），载荷仍走统一信封
+        return new ResponseEntity<>(ApiResponse.success(underwritingWebMapper.toResponse(command)), HttpStatus.CREATED);
     }
 
     @Override
-    public ResponseEntity<UnderwritingResponse> getUnderwritingById(String underwritingId) {
-        return ResponseEntity.ok(queryResponse(underwritingId));
+    public ApiResponse<UnderwritingResponse> getUnderwritingById(String underwritingId) {
+        // 读：查读模型，未命中时 data 为 null（契约语义）
+        return ApiResponse.success(queryResponse(underwritingId));
     }
 
     @Override
-    public ResponseEntity<List<UnderwritingResponse>> getUnderwritingByPolicyId(String policyId) {
+    public ApiResponse<List<UnderwritingResponse>> getUnderwritingByPolicyId(String policyId) {
         UnderwritingQueryResult result = underwritingQueryAppService
                 .findUnderwritingByPolicyId(PolicyId.of(policyId), RequestContextHolder.requireTenantId());
         List<UnderwritingResponse> body = result != null ? List.of(underwritingWebMapper.toResponse(result)) : List.of();
-        return ResponseEntity.ok(body);
+        return ApiResponse.success(body);
     }
 
     @Override
-    public ResponseEntity<UnderwritingResponse> underwrite(String underwritingId, UnderwriteRequest request) {
+    public ApiResponse<UnderwritingResponse> underwrite(String underwritingId, UnderwriteRequest request) {
         UnderwriteCommand command = underwritingWebAssembler.toCommand(underwritingId, request, RequestContextHolder.requireTenantId());
         UnderwritingStatusChangedEvent event = underwritingCommandService.underwrite(command);
-        return ResponseEntity.ok(underwritingWebMapper.toResponse(event));
+        return ApiResponse.success(underwritingWebMapper.toResponse(event));
     }
 
     @Override
-    public ResponseEntity<UnderwritingResponse> submitInput(String underwritingId,
+    public ApiResponse<UnderwritingResponse> submitInput(String underwritingId,
             SubmitUnderwritingInputApiRequest request) {
         SubmitUnderwritingInputCommand command = underwritingWebAssembler.toCommand(underwritingId, request, RequestContextHolder.requireTenantId());
         UnderwritingInputSubmittedEvent event = underwritingCommandService.submitInput(command);
-        return ResponseEntity.ok(underwritingWebMapper.toResponse(event));
+        return ApiResponse.success(underwritingWebMapper.toResponse(event));
     }
 
     @Override
-    public ResponseEntity<UnderwritingResponse> decide(String underwritingId, DecideUnderwritingApiRequest request) {
+    public ApiResponse<UnderwritingResponse> decide(String underwritingId, DecideUnderwritingApiRequest request) {
         DecideUnderwritingCommand command = underwritingWebAssembler.toCommand(underwritingId, request, RequestContextHolder.requireTenantId());
         // UW-4：透传险种编码，application 层据此读取产品核保配置充实决策命令（加费许可等）
         UnderwritingDecidedEvent event = underwritingCommandService.decide(command, request.getProductCode());
-        return ResponseEntity.ok(underwritingWebMapper.toResponse(event));
+        return ApiResponse.success(underwritingWebMapper.toResponse(event));
     }
 
     @Override
-    public ResponseEntity<List<UnderwritingResponse>> getUnderwritingsByStatus(String status, int page, int size) {
+    public ApiResponse<List<UnderwritingResponse>> getUnderwritingsByStatus(String status, int page, int size) {
         Page<UnderwritingQueryResult> results = underwritingQueryAppService.findUnderwritingsByStatus(
                 UnderwritingEnum.UnderwritingStatus.fromCode(status), pageRequest(page, size), RequestContextHolder.requireTenantId());
-        return ResponseEntity.ok(toResponses(results));
+        return ApiResponse.success(toResponses(results));
     }
 
     @Override
-    public ResponseEntity<List<UnderwritingResponse>> getAllUnderwritings(int page, int size) {
+    public ApiResponse<List<UnderwritingResponse>> getAllUnderwritings(int page, int size) {
         // 全量即「多条件全空」的动态查询：读侧 Specification 逐条跳过 null 条件，无需为契约新增 findAll 方法
         Page<UnderwritingQueryResult> results = underwritingQueryAppService.findUnderwritingsByMultipleConditions(null,
                 null, null, null, null, null, null, pageRequest(page, size), RequestContextHolder.requireTenantId());
-        return ResponseEntity.ok(toResponses(results));
+        return ApiResponse.success(toResponses(results));
     }
 
     /**

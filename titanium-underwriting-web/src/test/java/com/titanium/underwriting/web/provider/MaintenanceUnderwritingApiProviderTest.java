@@ -70,6 +70,8 @@ class MaintenanceUnderwritingApiProviderTest {
 
         assertEquals(200, result.getResponse().getStatus());
         String responseBody = result.getResponse().getContentAsString();
+        // m24-01a：契约统一返回 ApiResponse 信封，载荷落在 data 内（字段断言仍成立，另锁信封成功码）
+        assertTrue(responseBody.contains("\"code\":\"00000000\""), responseBody);
         assertTrue(responseBody.contains("\"underwritingCaseId\":\"underwriting-1\""));
         assertTrue(responseBody.contains("\"conclusion\":\"CONDITIONAL_APPROVED\""));
 

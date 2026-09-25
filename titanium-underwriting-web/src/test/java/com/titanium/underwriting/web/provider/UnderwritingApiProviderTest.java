@@ -1,6 +1,7 @@
 package com.titanium.underwriting.web.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -23,10 +24,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 import com.titanium.common.context.RequestContextHolder;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.metadata.response.ApiResponse;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
 import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
@@ -91,11 +92,11 @@ class UnderwritingApiProviderTest {
 
         assertEquals(HttpStatus.CREATED,
                 provider.createUnderwriting(new CreateUnderwritingRequest()).getStatusCode());
-        assertEquals(HttpStatus.OK, provider.underwrite("UW-001", new UnderwriteRequest()).getStatusCode());
-        assertEquals(HttpStatus.OK,
-                provider.submitInput("UW-001", new SubmitUnderwritingInputApiRequest()).getStatusCode());
-        assertEquals(HttpStatus.OK,
-                provider.decide("UW-001", new DecideUnderwritingApiRequest()).getStatusCode());
+        // m24-01a：除 createUnderwriting（保留 201 状态语义的 ResponseEntity 外层）外，其余写端点改为裸信封，
+        // 「成功」由信封 isSuccess 表达（HTTP 200 由全局序列化给出），不再经 ResponseEntity 判状态码
+        assertTrue(provider.underwrite("UW-001", new UnderwriteRequest()).isSuccess());
+        assertTrue(provider.submitInput("UW-001", new SubmitUnderwritingInputApiRequest()).isSuccess());
+        assertTrue(provider.decide("UW-001", new DecideUnderwritingApiRequest()).isSuccess());
 
         verifyNoInteractions(queryService);
     }
@@ -108,9 +109,9 @@ class UnderwritingApiProviderTest {
                 any(Pageable.class), eq(TENANT_ID))).thenReturn(new PageImpl<>(List.of(result)));
         when(mapper.toResponse(result)).thenReturn(response);
 
-        ResponseEntity<List<UnderwritingResponse>> entity = provider.getUnderwritingsByStatus("PENDING", 0, 20);
+        ApiResponse<List<UnderwritingResponse>> envelope = provider.getUnderwritingsByStatus("PENDING", 0, 20);
 
-        assertEquals(List.of(response), entity.getBody(), "空桩已废：必须回读模型当页内容并按契约映射为 Response");
+        assertEquals(List.of(response), envelope.getData(), "空桩已废：必须回读模型当页内容并按契约映射为 Response");
     }
 
     @Test
@@ -118,9 +119,9 @@ class UnderwritingApiProviderTest {
         when(queryService.findUnderwritingsByMultipleConditions(isNull(), isNull(), isNull(), isNull(), isNull(),
                 isNull(), isNull(), any(Pageable.class), eq(TENANT_ID))).thenReturn(Page.empty());
 
-        ResponseEntity<List<UnderwritingResponse>> entity = provider.getAllUnderwritings(0, 20);
+        ApiResponse<List<UnderwritingResponse>> envelope = provider.getAllUnderwritings(0, 20);
 
-        assertEquals(List.of(), entity.getBody());
+        assertEquals(List.of(), envelope.getData());
     }
 
     @Test
