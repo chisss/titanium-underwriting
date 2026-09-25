@@ -1,7 +1,7 @@
 # Titanium 核保域 (titanium-underwriting) - 模块开发规约
 
-> **版本**: V1.3
-> **最后更新**: 2026-09-14（m11-1404 产品核保配置来源显式化：新增 `ProductConfigSource` 三态标记并随命令/事件全链传递，见第七节；同时保留 m10-1302 入站链路定性纠偏——判据=定性入站链路必须从调用方侧核验）
+> **版本**: V1.4
+> **最后更新**: 2026-09-26（m24-04a：规则引擎规则事实契约改为 `RuleFacts`，§七 第 13 条「body 是裸 Map」已更正）
 > **定位**: 保险核心系统 - 核保域微服务
 > **上级规约**: 见根目录 [CLAUDE.md](../CLAUDE.md)，本文档仅补充本模块差异化内容，通用规约不重复
 
@@ -189,7 +189,7 @@ mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=18083
 
 - ✅ **规则引擎执行审计的业务上下文透传**：本域调规则引擎时**不携带业务单号**，导致规则引擎侧 `t_rule_execution_log` 的 `business_id`/`business_type` 恒为空，**无法按核保单反查「某次核保用了哪条规则集、命中了什么」**。
   修复：`RuleEngineServicePort.executeRuleSet` 末参追加 `businessId`，`UnderwritingDecisionOrchestrator` 传 `command.underwritingId().value()`；`RuleEngineServiceAdapter` 以常量 `BUSINESS_TYPE = BusinessDomainType.UNDERWRITING.getCode()` 上报业务域类型。
-  🔴 **契约走可选请求头** `X-Business-Id`/`X-Business-Type`（与既有 `X-Tenant-Id` 同构），**不进请求体**——规则执行入口的 body 是裸 `Map<String,Object>` 规则变量，塞业务字段会污染规则变量命名空间。
+  🔴 **契约走可选请求头** `X-Business-Id`/`X-Business-Type`（与既有 `X-Tenant-Id` 同构），**不进请求体**——规则执行入口的 body 是**规则变量**（键即规则里引用的变量名），塞业务字段会污染规则变量命名空间。🔴 **原记「body 是裸 `Map<String,Object>`」已于 m24-04a（2026-09-26）失效**：规则引擎侧四个执行端点的 body 现为契约类型 `com.titanium.ruleengine.api.request.execution.RuleFacts`（不可变 Map + 键白名单），**报文形态不变**（仍为扁平键值对象，本域 Adapter 调 `RuleFacts.of(variables)` 即可，无报文改动）。详见 [titanium-rule-engine/CLAUDE.md](../titanium-rule-engine/CLAUDE.md) §九。
   🔴 `businessType` 是**端口固有属性**（由 adapter 常量决定，非调用方逐次传入）；`businessId` 一律**追加为最后一个参数**以最小化既有参数语义扰动。
   回归：`RuleEngineServiceAdapterTest` 新增 `missingBusinessIdStillReportsBusinessDomainType`（业务单号缺失不阻断执行，域类型仍上报）。
 

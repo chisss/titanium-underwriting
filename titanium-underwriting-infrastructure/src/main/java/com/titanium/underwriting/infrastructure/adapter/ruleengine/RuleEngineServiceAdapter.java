@@ -12,6 +12,7 @@ import com.titanium.metadata.errorcode.RuleEngineErrorCode;
 import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.metadata.response.ApiResponse;
 import com.titanium.ruleengine.api.RuleEngineApi;
+import com.titanium.ruleengine.api.request.execution.RuleFacts;
 import com.titanium.ruleengine.api.response.execution.RuleExecutionResultResponse;
 import com.titanium.ruleengine.common.enums.RuleDecision;
 import com.titanium.underwriting.port.ruleengine.RuleEngineServicePort;
@@ -54,8 +55,8 @@ public class RuleEngineServiceAdapter implements RuleEngineServicePort {
         log.info("[规则引擎] 执行规则集: ruleSetCode={}, tenantId={}, businessId={}, variables={}", ruleSetCode,
                 tenantId, businessId, context != null ? context.keySet() : null);
         try {
-            ApiResponse<RuleExecutionResultResponse> response = ruleEngineApi.execute(ruleSetCode, context,
-                    businessId, BUSINESS_TYPE);
+            ApiResponse<RuleExecutionResultResponse> response = ruleEngineApi.execute(ruleSetCode,
+                    RuleFacts.of(context), businessId, BUSINESS_TYPE);
             if (response == null || !response.isSuccess() || response.getData() == null) {
                 String message = response != null ? response.getMessage() : "规则引擎无响应";
                 log.error("[规则引擎] 规则集执行失败: ruleSetCode={}, error={}", ruleSetCode, message);
