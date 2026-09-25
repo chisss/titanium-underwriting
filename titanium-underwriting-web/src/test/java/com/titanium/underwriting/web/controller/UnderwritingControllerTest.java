@@ -27,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import com.titanium.common.context.RequestContext;
 import com.titanium.common.context.RequestContextHolder;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.metadata.response.ApiResponse;
 import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
 import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
@@ -104,14 +105,17 @@ class UnderwritingControllerTest {
         when(underwritingWebMapper.toVO(commandResponse)).thenReturn(mockVO);
 
         // When
-        ResponseEntity<UnderwritingVO> response = underwritingController.createUnderwriting(mockRequest);
+        // m24-01b：web 端点统一返回 ApiResponse 信封，载荷下移至 data
+        ResponseEntity<ApiResponse<UnderwritingVO>> response = underwritingController.createUnderwriting(mockRequest);
 
         // Then
         assertNotNull(response);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertEquals("UW202401001", response.getBody().getUnderwritingId());
-        assertEquals("POL202401001", response.getBody().getPolicyId());
+        assertEquals(ApiResponse.SUCCESS_CODE, response.getBody().getCode());
+        assertNotNull(response.getBody().getData());
+        assertEquals("UW202401001", response.getBody().getData().getUnderwritingId());
+        assertEquals("POL202401001", response.getBody().getData().getPolicyId());
         verifyNoInteractions(underwritingQueryAppService);
     }
 
@@ -123,13 +127,13 @@ class UnderwritingControllerTest {
         when(underwritingWebMapper.toVO(mockResult)).thenReturn(mockVO);
 
         // When
-        ResponseEntity<UnderwritingVO> response = underwritingController.getUnderwritingById("UW202401001");
+        ApiResponse<UnderwritingVO> response = underwritingController.getUnderwritingById("UW202401001");
 
         // Then
         assertNotNull(response);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("UW202401001", response.getBody().getUnderwritingId());
+        assertEquals(ApiResponse.SUCCESS_CODE, response.getCode());
+        assertNotNull(response.getData());
+        assertEquals("UW202401001", response.getData().getUnderwritingId());
     }
 
     @Test
@@ -142,15 +146,15 @@ class UnderwritingControllerTest {
         when(underwritingWebMapper.toVO(mockResult)).thenReturn(mockVO);
 
         // When
-        ResponseEntity<Page<UnderwritingVO>> response = underwritingController.searchUnderwritings(
+        ApiResponse<Page<UnderwritingVO>> response = underwritingController.searchUnderwritings(
                 null, "NEW_BUSINESS", null, null, null, 0, 10);
 
         // Then
         assertNotNull(response);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(1, response.getBody().getTotalElements());
-        assertEquals("UW202401001", response.getBody().getContent().get(0).getUnderwritingId());
+        assertEquals(ApiResponse.SUCCESS_CODE, response.getCode());
+        assertNotNull(response.getData());
+        assertEquals(1, response.getData().getTotalElements());
+        assertEquals("UW202401001", response.getData().getContent().get(0).getUnderwritingId());
     }
 
     @Test
@@ -163,12 +167,12 @@ class UnderwritingControllerTest {
         when(underwritingWebMapper.toVO(mockResult)).thenReturn(mockVO);
 
         // When
-        ResponseEntity<Page<UnderwritingVO>> response = underwritingController.searchUnderwritings(
+        ApiResponse<Page<UnderwritingVO>> response = underwritingController.searchUnderwritings(
                 "UNKNOWN_STATUS", "UNKNOWN_TYPE", null, null, null, 0, 10);
 
         // Then
         assertNotNull(response);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
+        assertEquals(ApiResponse.SUCCESS_CODE, response.getCode());
+        assertNotNull(response.getData());
     }
 }
