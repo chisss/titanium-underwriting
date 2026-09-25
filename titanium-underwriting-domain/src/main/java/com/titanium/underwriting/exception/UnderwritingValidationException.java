@@ -45,7 +45,7 @@ public class UnderwritingValidationException extends DomainException {
     /**
      * @deprecated 裸串构造器无法国际化，请改用 {@link #UnderwritingValidationException(UnderwritingErrorCode, String)}
      */
-    @Deprecated
+    @Deprecated(since = "2026-08", forRemoval = true)
     public UnderwritingValidationException(String commandName, String validationMessage) {
         super(DEFAULT_ERROR_CODE,
                 String.format("命令 %s 校验失败: %s", commandName, validationMessage));
@@ -55,7 +55,7 @@ public class UnderwritingValidationException extends DomainException {
      * @deprecated 裸串构造器无法国际化，请改用
      * {@link #UnderwritingValidationException(UnderwritingErrorCode, String, String)}
      */
-    @Deprecated
+    @Deprecated(since = "2026-08", forRemoval = true)
     public UnderwritingValidationException(String commandName, String fieldName, String validationMessage) {
         super(DEFAULT_ERROR_CODE,
                 String.format("命令 %s 字段 %s 校验失败: %s", commandName, fieldName, validationMessage));

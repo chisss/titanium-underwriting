@@ -54,7 +54,7 @@ public class UnderwritingStatusException extends IllegalStateTransitionException
      * @deprecated 裸串构造器无法国际化，请改用
      * {@link #UnderwritingStatusException(UnderwritingErrorCode, String, String, String)}
      */
-    @Deprecated
+    @Deprecated(since = "2026-08", forRemoval = true)
     public UnderwritingStatusException(String underwritingId, String fromStatus, String toStatus) {
         super(DEFAULT_ERROR_CODE, AGGREGATE_TYPE, underwritingId, fromStatus, toStatus);
     }
@@ -63,7 +63,7 @@ public class UnderwritingStatusException extends IllegalStateTransitionException
      * @deprecated 裸串构造器无法国际化，请改用
      * {@link #UnderwritingStatusException(UnderwritingErrorCode, String, String, String, String)}
      */
-    @Deprecated
+    @Deprecated(since = "2026-08", forRemoval = true)
     public UnderwritingStatusException(String underwritingId, String fromStatus, String toStatus, String reason) {
         super(DEFAULT_ERROR_CODE, AGGREGATE_TYPE, underwritingId, fromStatus, toStatus, reason);
     }

@@ -57,7 +57,7 @@ public class UnderwritingException extends RuntimeException {
     /**
      * @deprecated 裸串错误码无法国际化，请改用 {@link #UnderwritingException(UnderwritingErrorCode, String)}
      */
-    @Deprecated
+    @Deprecated(since = "2026-08", forRemoval = true)
     public UnderwritingException(String errorCode, String errorMessage) {
         super(errorMessage);
         this.errorCode = errorCode;
@@ -68,7 +68,7 @@ public class UnderwritingException extends RuntimeException {
      * @deprecated 裸串错误码无法国际化，请改用
      * {@link #UnderwritingException(UnderwritingErrorCode, String, Throwable)}
      */
-    @Deprecated
+    @Deprecated(since = "2026-08", forRemoval = true)
     public UnderwritingException(String errorCode, String errorMessage, Throwable cause) {
         super(errorMessage, cause);
         this.errorCode = errorCode;
@@ -90,7 +90,7 @@ public class UnderwritingException extends RuntimeException {
     /**
      * @deprecated 裸串错误码无法国际化，请改用 {@link #of(UnderwritingErrorCode, String)}
      */
-    @Deprecated
+    @Deprecated(since = "2026-08", forRemoval = true)
     public static UnderwritingException of(String errorCode, String errorMessage) {
         return new UnderwritingException(errorCode, errorMessage);
     }
@@ -99,7 +99,7 @@ public class UnderwritingException extends RuntimeException {
      * @deprecated 裸串错误码无法国际化，请改用
      * {@link #of(UnderwritingErrorCode, String, Throwable)}
      */
-    @Deprecated
+    @Deprecated(since = "2026-08", forRemoval = true)
     public static UnderwritingException of(String errorCode, String errorMessage, Throwable cause) {
         return new UnderwritingException(errorCode, errorMessage, cause);
     }
