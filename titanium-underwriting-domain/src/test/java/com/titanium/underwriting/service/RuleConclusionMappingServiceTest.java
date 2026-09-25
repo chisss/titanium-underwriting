@@ -159,7 +159,7 @@ class RuleConclusionMappingServiceTest {
 
         DomainException ex = assertThrows(DomainException.class, () -> service.map(result, true));
 
-        assertEquals(UnderwritingErrorCode.RULE_ENGINE_CONCLUSION_UNSUPPORTED.getCode(), ex.getErrorCode());
+        assertEquals(UnderwritingErrorCode.RULE_ENGINE_CONCLUSION_UNSUPPORTED.getCode(), ex.getErrorCodeValue());
     }
 
     @Test
@@ -167,6 +167,6 @@ class RuleConclusionMappingServiceTest {
     void nullResultThrowsDomainException() {
         DomainException ex = assertThrows(DomainException.class, () -> service.map(null, true));
 
-        assertEquals(UnderwritingErrorCode.RULE_ENGINE_CONCLUSION_UNSUPPORTED.getCode(), ex.getErrorCode());
+        assertEquals(UnderwritingErrorCode.RULE_ENGINE_CONCLUSION_UNSUPPORTED.getCode(), ex.getErrorCodeValue());
     }
 }

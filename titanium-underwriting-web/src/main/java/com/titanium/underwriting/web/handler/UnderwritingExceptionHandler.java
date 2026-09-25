@@ -38,7 +38,7 @@ public class UnderwritingExceptionHandler {
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ApiResponse<Void>> handleDomainException(DomainException exception) {
         log.warn("[核保] 领域规则拒绝: errorCode={}, message={}",
-                exception.getErrorCode(), exception.getMessage());
+                exception.getErrorCodeValue(), exception.getMessage());
         return ResponseEntity.badRequest()
                 .body(ApiResponse.error(SystemErrorCode.PARAM_INVALID, exception.getMessage()));
     }
