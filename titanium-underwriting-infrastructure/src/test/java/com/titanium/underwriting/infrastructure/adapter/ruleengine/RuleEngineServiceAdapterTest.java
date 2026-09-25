@@ -93,7 +93,7 @@ class RuleEngineServiceAdapterTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
-        assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCode());
+        assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCodeValue());
     }
 
     @Test
@@ -105,7 +105,7 @@ class RuleEngineServiceAdapterTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
-        assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCode());
+        assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCodeValue());
     }
 
     @Test
@@ -120,7 +120,7 @@ class RuleEngineServiceAdapterTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
-        assertEquals(UnderwritingErrorCode.RULE_CONTEXT_VARIABLE_MISSING.getCode(), ex.getErrorCode());
+        assertEquals(UnderwritingErrorCode.RULE_CONTEXT_VARIABLE_MISSING.getCode(), ex.getErrorCodeValue());
         assertTrue(ex.getMessage().contains("bmiLevel"));
     }
 
@@ -135,7 +135,7 @@ class RuleEngineServiceAdapterTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
-        assertEquals(UnderwritingErrorCode.RULE_CONTEXT_VARIABLE_MISSING.getCode(), ex.getErrorCode());
+        assertEquals(UnderwritingErrorCode.RULE_CONTEXT_VARIABLE_MISSING.getCode(), ex.getErrorCodeValue());
     }
 
     @Test
@@ -150,7 +150,7 @@ class RuleEngineServiceAdapterTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
-        assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCode());
+        assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCodeValue());
     }
 
     @Test
@@ -161,7 +161,7 @@ class RuleEngineServiceAdapterTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> adapter.executeRuleSet(TENANT_ID, "UW_STD_001", Map.of(), BUSINESS_ID));
 
-        assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCode());
+        assertEquals(UnderwritingErrorCode.RULE_ENGINE_EXECUTION_FAILED.getCode(), ex.getErrorCodeValue());
         assertFalse(ex.getMessage().isBlank());
     }
 
