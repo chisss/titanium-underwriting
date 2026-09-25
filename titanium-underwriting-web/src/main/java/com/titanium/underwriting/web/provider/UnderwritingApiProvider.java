@@ -39,14 +39,16 @@ import lombok.RequiredArgsConstructor;
 /**
  * 核保契约实现（Provider）
  * <p>
- * 承接 {@link UnderwritingApi} Feign 契约，面向其它微服务的远程调用。路径由 {@link UnderwritingApi} 的
- * {@code @RequestMapping("/underwriting/api")} 唯一定义，本类通过 {@code implements} 继承，
- * <b>不重复标注、不篡改</b>。职责仅为协议转换（DTO/Request → 领域命令、读模型结果 → DTO）+ 调用应用层门面，
+ * 承接 {@link UnderwritingApi} Feign 契约，面向其它微服务的远程调用。
+ * 🔴 {@code @FeignClient(path)} 是 Feign 专有注记，<b>不被 Spring MVC 继承</b>，故本类必须以类级
+ * {@code @RequestMapping} 重新声明同一路径；m24-06（API-06）起契约路径带版本段 {@code /api/v1}，
+ * 本类在**一个版本周期内同时挂新旧两条路径**，待调用方迁移完毕再删旧路径。
+ * 职责仅为协议转换（DTO/Request → 领域命令、读模型结果 → DTO）+ 调用应用层门面，
  * 零业务逻辑。与面向后台/端上的 {@code UnderwritingController} 平行收敛到同一应用层门面。
  * </p>
  */
 @RestController
-@RequestMapping("/underwriting/api")
+@RequestMapping({"/api/v1/underwritings", "/underwriting/api"})
 @RequiredArgsConstructor
 public class UnderwritingApiProvider implements UnderwritingApi {
 

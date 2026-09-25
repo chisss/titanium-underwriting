@@ -29,8 +29,14 @@ import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
  * {@link #createUnderwriting} 保留 {@code ResponseEntity} 外层，因其需表达 201 Created 状态语义
  * （状态码控制）；其余方法无状态控制需求，一律裸 {@code ApiResponse<T>}。
  * </p>
+ * <p>
+ * 🔴 m24-06（API-06）路径规范化：基路径由 {@code /underwriting/api} 改为 {@code /api/v1/underwritings}，
+ * 且原方法级 {@code @PostMapping("/create")} 的动词段 {@code /create} 被去掉，改为对**资源集合**直接发
+ * {@code POST}（AIP 惯例）。服务端（{@code UnderwritingApiProvider}）在**一个版本周期内同时挂新旧两条路径**，
+ * 待调用方迁移完毕再删旧路径。
+ * </p>
  */
-@FeignClient(name = "titanium-underwriting-service", path = "/underwriting/api")
+@FeignClient(name = "titanium-underwriting-service", path = "/api/v1/underwritings")
 public interface UnderwritingApi {
     /**
      * 创建核保
@@ -38,7 +44,7 @@ public interface UnderwritingApi {
      * @param request 创建核保请求
      * @return 统一信封（HTTP 201），{@code data} 为创建的核保DTO
      */
-    @PostMapping("/create")
+    @PostMapping
     ResponseEntity<ApiResponse<UnderwritingResponse>> createUnderwriting(@RequestBody CreateUnderwritingRequest request);
 
     /**

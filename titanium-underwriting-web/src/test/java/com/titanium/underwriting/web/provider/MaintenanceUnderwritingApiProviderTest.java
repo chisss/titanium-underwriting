@@ -45,10 +45,7 @@ class MaintenanceUnderwritingApiProviderTest {
                 .addInterceptors(new RequestContextInterceptor())
                 .build();
 
-        MvcResult result = mockMvc.perform(post("/underwriting/api/maintenance-assessments")
-                        .header("X-Tenant-ID", "tenant-1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+        String payload = """
                                 {
                                   "maintenanceId": "case-1",
                                   "policyId": "policy-1",
@@ -65,7 +62,12 @@ class MaintenanceUnderwritingApiProviderTest {
                                   "payloadHash": "%s",
                                   "requestedBy": "maintenance-service"
                                 }
-                                """.formatted("b".repeat(64), "a".repeat(64))))
+                                """.formatted("b".repeat(64), "a".repeat(64));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/maintenance-assessments")
+                        .header("X-Tenant-ID", "tenant-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
                 .andReturn();
 
         assertEquals(200, result.getResponse().getStatus());
@@ -79,5 +81,16 @@ class MaintenanceUnderwritingApiProviderTest {
                 ArgumentCaptor.forClass(AssessMaintenanceUnderwritingCommand.class);
         verify(commandService).assessMaintenance(captor.capture());
         assertEquals("tenant-1", captor.getValue().tenantId());
+
+        // m24-06（API-06）双挂回归：契约路径补版本段后，服务端在一个版本周期内**同时挂新旧两条路径**，
+        // 旧路径必须仍可路由（否则迁移期内的调用方被硬切）。仅断言状态码不足以证明命中 provider——
+        // 200 只可能来自 controller，路由缺失时 MockMvc 抛的是 404 而非静默通过。
+        MvcResult legacy = mockMvc.perform(post("/underwriting/api/maintenance-assessments")
+                        .header("X-Tenant-ID", "tenant-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andReturn();
+        assertEquals(200, legacy.getResponse().getStatus(), legacy.getResponse().getContentAsString());
+        assertTrue(legacy.getResponse().getContentAsString().contains("\"code\":\"00000000\""));
     }
 }

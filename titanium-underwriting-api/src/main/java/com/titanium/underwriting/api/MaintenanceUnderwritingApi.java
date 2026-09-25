@@ -14,11 +14,16 @@ import com.titanium.underwriting.api.response.maintenance.MaintenanceUnderwritin
  * 🔴 m24-01a 起统一返回 {@link ApiResponse} 信封：调用方先判 {@code isSuccess()} 再取 {@code getData()}；
  * 失败仍由全局异常处理器以非 2xx 表达（Feign 抛 {@code FeignException}），信封化只改成功体的成形。
  * </p>
+ * <p>
+ * 🔴 m24-06（API-06）路径规范化：基路径由 {@code /underwriting/api/maintenance-assessments} 改为
+ * {@code /api/v1/maintenance-assessments}；服务端（{@code MaintenanceUnderwritingApiProvider}）在
+ * **一个版本周期内同时挂新旧两条路径**，待调用方迁移完毕再删旧路径。
+ * </p>
  */
 @FeignClient(
         name = "titanium-underwriting-service",
         contextId = "maintenanceUnderwritingApi",
-        path = "/underwriting/api/maintenance-assessments")
+        path = "/api/v1/maintenance-assessments")
 public interface MaintenanceUnderwritingApi {
 
     /** 创建或重试一次幂等的保全风险评估。 */
