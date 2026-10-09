@@ -12,8 +12,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.titanium.metadata.response.ApiResponse;
+import com.titanium.underwriting.api.request.underwriting.AutoDecideUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
+import com.titanium.underwriting.api.request.underwriting.ManualReviewRequest;
 import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
 import com.titanium.underwriting.api.request.underwriting.UnderwriteRequest;
 import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
@@ -46,6 +48,27 @@ public interface UnderwritingApi {
      */
     @PostMapping
     ResponseEntity<ApiResponse<UnderwritingResponse>> createUnderwriting(@RequestBody CreateUnderwritingRequest request);
+
+    /**
+     * 自动决策（粗粒度，g02-04 / AC-05）：一次调用完成「创建/幂等复用 + 提交输入 + 出具决策」并返回结论。
+     * <p>
+     * 🔴 <b>幂等键为投保单号</b>：同一 {@code insuranceId} 重复调用返回同一张核保单的结论，不重复建单；
+     * 上游 Saga 重试/重入安全。既有四步接口（创建/提交输入/决策）保持不变，二者为粗/细两种粒度。
+     * </p>
+     * <p>
+     * 🔴 <b>路径实测说明</b>：本方法挂在本接口既有的 {@code path = "/api/v1/underwritings"} 之下，
+     * 服务端真实路径为 {@code POST /api/v1/underwritings/:auto-decide}。规划文档所写的
+     * {@code /api/v1/underwritings:auto-decide}（冒号紧贴资源名）在 Spring 下<b>不可达</b>——
+     * 实测 {@code PathPattern.combine} 与 Feign 的 {@code SpringMvcContract} <b>均强制在方法级相对路径前插入
+     * {@code /}</b>（两侧行为一致，已逐形态验证）；要得到无斜杠形态必须让类级前缀降为 {@code /api/v1}
+     * （即新建一套契约与 Provider），代价与收益不成比例（KISS），故取等价的斜杠形态并在此登记偏差。
+     * </p>
+     *
+     * @param request 自动决策请求（投保单号 + 险种 + 保额 + 风险要素）
+     * @return 统一信封，{@code data} 为核保结论（新建与复用同形）
+     */
+    @PostMapping(":auto-decide")
+    ApiResponse<UnderwritingResponse> autoDecide(@RequestBody AutoDecideUnderwritingRequest request);
 
     /**
      * 根据ID查询核保
@@ -97,6 +120,21 @@ public interface UnderwritingApi {
     @PutMapping("/{underwritingId}/decide")
     ApiResponse<UnderwritingResponse> decide(@PathVariable String underwritingId,
                                            @RequestBody DecideUnderwritingApiRequest request);
+
+    /**
+     * 转人工审核（g02-03）：把核保件置为人工复核状态（{@code MANUAL_REVIEW}）。
+     * <p>
+     * 服务端与 web 端点平行收敛到同一应用层门面 {@code UnderwritingCommandService#manualReview}；
+     * 已出结论的终态核保件发起转人工会被聚合拒绝（不产生事件）。
+     * </p>
+     *
+     * @param underwritingId 核保ID
+     * @param request 转人工审核请求
+     * @return 统一信封，{@code data} 为更新后的核保DTO
+     */
+    @PutMapping("/{underwritingId}/manual-review")
+    ApiResponse<UnderwritingResponse> manualReview(@PathVariable String underwritingId,
+                                                   @RequestBody ManualReviewRequest request);
 
     /**
      * 根据状态分页查询核保列表
