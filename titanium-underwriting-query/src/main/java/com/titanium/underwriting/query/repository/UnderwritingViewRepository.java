@@ -35,6 +35,16 @@ public interface UnderwritingViewRepository
     Optional<UnderwritingView> findByPolicyIdAndTenantId(String policyId, String tenantId);
 
     /**
+     * 按投保单号 + 租户ID查询核保单（按创建时间升序）
+     * <p>
+     * 返回 {@link List} 而非 {@code Optional}：投保单号是 g02-04 起的幂等键，但读模型**不建唯一约束**
+     * （理由见迁移脚本 {@code underwriting_view_202609271200_weisun_ddl.sql}），历史数据与并发场景下
+     * 同一投保单可能存在多行。调用方据此自行收敛（已出结论者优先复用，否则续跑最早一张）。
+     * </p>
+     */
+    List<UnderwritingView> findByInsuranceIdAndTenantIdOrderByCreatedAtAsc(String insuranceId, String tenantId);
+
+    /**
      * 按状态 + 租户ID分页查询
      */
     Page<UnderwritingView> findByStatusAndTenantId(UnderwritingEnum.UnderwritingStatus status, String tenantId,

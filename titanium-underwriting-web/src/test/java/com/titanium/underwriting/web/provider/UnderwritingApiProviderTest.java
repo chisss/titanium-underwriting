@@ -28,8 +28,10 @@ import org.springframework.http.HttpStatus;
 import com.titanium.common.context.RequestContextHolder;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.metadata.response.ApiResponse;
+import com.titanium.underwriting.api.request.underwriting.AutoDecideUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
+import com.titanium.underwriting.api.request.underwriting.ManualReviewRequest;
 import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
 import com.titanium.underwriting.api.request.underwriting.UnderwriteRequest;
 import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
@@ -37,9 +39,12 @@ import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
+import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
+import com.titanium.underwriting.valueobject.AutoDecideRequest;
+import com.titanium.underwriting.valueobject.AutoDecideResult;
 import com.titanium.underwriting.web.assembler.UnderwritingWebAssembler;
 import com.titanium.underwriting.web.mapper.UnderwritingWebMapper;
 
@@ -89,6 +94,16 @@ class UnderwritingApiProviderTest {
         DecideUnderwritingCommand decideCommand = mock(DecideUnderwritingCommand.class);
         when(assembler.toCommand(any(String.class), any(DecideUnderwritingApiRequest.class), any(String.class)))
                 .thenReturn(decideCommand);
+        // g02-03：转人工契约与 web 端点平行收敛，同样不得回读异步投影
+        ManualReviewCommand manualReviewCommand = mock(ManualReviewCommand.class);
+        when(assembler.toCommand(any(String.class), any(ManualReviewRequest.class), any(String.class)))
+                .thenReturn(manualReviewCommand);
+        // g02-04：粗粒度自动决策同样以同步回执为准（结论来自命令结果，不回读投影）
+        AutoDecideRequest autoDecideRequest = mock(AutoDecideRequest.class);
+        when(assembler.toAutoDecideRequest(any(AutoDecideUnderwritingRequest.class), any(String.class)))
+                .thenReturn(autoDecideRequest);
+        AutoDecideResult autoDecideResult = mock(AutoDecideResult.class);
+        when(commandService.autoDecide(autoDecideRequest)).thenReturn(autoDecideResult);
 
         assertEquals(HttpStatus.CREATED,
                 provider.createUnderwriting(new CreateUnderwritingRequest()).getStatusCode());
@@ -97,6 +112,10 @@ class UnderwritingApiProviderTest {
         assertTrue(provider.underwrite("UW-001", new UnderwriteRequest()).isSuccess());
         assertTrue(provider.submitInput("UW-001", new SubmitUnderwritingInputApiRequest()).isSuccess());
         assertTrue(provider.decide("UW-001", new DecideUnderwritingApiRequest()).isSuccess());
+        assertTrue(provider.manualReview("UW-001", new ManualReviewRequest()).isSuccess());
+        assertTrue(provider.autoDecide(new AutoDecideUnderwritingRequest()).isSuccess());
+        // 同步回执链完整：命令结果经 Mapper 映射为契约 Response，不经读模型
+        verify(mapper).toResponse(autoDecideResult);
 
         verifyNoInteractions(queryService);
     }

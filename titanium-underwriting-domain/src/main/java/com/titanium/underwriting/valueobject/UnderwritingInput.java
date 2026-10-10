@@ -21,6 +21,7 @@ import lombok.Builder;
  * @param occupationInfo 职业信息（意外险/定期寿险）
  * @param vehicleRiskInfo 车辆风险信息（车险）
  * @param financialAssessment 财务评估（高保额寿险财务核保）
+ * @param insuredRiskFactors 被保人粗粒度风险要素（年龄/性别/职业类别/BMI；承保前置链路自动透传）
  * @author wei.sun
  * @since 2026/6/23
  */
@@ -28,7 +29,8 @@ import lombok.Builder;
 public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExamResult physicalExamResult,
                                 OccupationInfo occupationInfo,
                                 VehicleRiskInfo vehicleRiskInfo,
-                                FinancialAssessment financialAssessment)
+                                FinancialAssessment financialAssessment,
+                                InsuredRiskFactors insuredRiskFactors)
         implements
             Serializable {
 
@@ -54,13 +56,16 @@ public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExa
      */
     public boolean hasAnyInput() {
         return healthDeclaration != null || physicalExamResult != null || occupationInfo != null
-                || vehicleRiskInfo != null || financialAssessment != null;
+                || vehicleRiskInfo != null || financialAssessment != null
+                || (insuredRiskFactors != null && insuredRiskFactors.hasAny());
     }
 
     /**
      * 综合风险评分（取各项输入评分的最大值，0-100）
      * <p>
      * 采用"短板优先"策略：任一维度高风险即拉高整体风险，符合保险核保保守原则（充血模型）。
+     * 取最大值而非求和，故同一要素同时出现在粗粒度容器（{@link #insuredRiskFactors}）与明细块
+     * （职业/体检）时不会重复计分。
      * </p>
      *
      * @return 综合风险评分
@@ -81,6 +86,9 @@ public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExa
         }
         if (financialAssessment != null) {
             score = Math.max(score, financialAssessment.riskScore());
+        }
+        if (insuredRiskFactors != null) {
+            score = Math.max(score, insuredRiskFactors.riskScore());
         }
         return score;
     }

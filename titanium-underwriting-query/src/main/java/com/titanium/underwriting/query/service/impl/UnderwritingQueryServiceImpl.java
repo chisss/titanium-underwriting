@@ -78,6 +78,13 @@ public class UnderwritingQueryServiceImpl implements UnderwritingQueryService {
     }
 
     @Override
+    public List<UnderwritingQueryResult> findByInsuranceId(String insuranceId, String tenantId) {
+        log.info("根据投保单号查询核保: insuranceId={}, tenantId={}", insuranceId, tenantId);
+        return underwritingViewRepository.findByInsuranceIdAndTenantIdOrderByCreatedAtAsc(insuranceId, tenantId).stream()
+                .map(underwritingQueryResultMapper::toQueryResult).toList();
+    }
+
+    @Override
     public Page<UnderwritingQueryResult> findByStatus(UnderwritingEnum.UnderwritingStatus status, String tenantId,
                                                       Pageable pageable) {
         log.info("根据状态查询核保: status={}, tenantId={}", status, tenantId);

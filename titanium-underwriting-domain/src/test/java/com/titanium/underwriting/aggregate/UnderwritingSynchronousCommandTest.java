@@ -45,7 +45,7 @@ class UnderwritingSynchronousCommandTest {
     @Test
     void underwriteReturnsAppliedStatusEventSynchronously() {
         UnderwriteCommand command = new UnderwriteCommand(UNDERWRITING_ID,
-                UnderwritingAmount.of(BigDecimal.ZERO, CurrencyEnum.CNY), "自动核保", "system", TENANT_ID);
+                UnderwritingAmount.of(BigDecimal.ZERO, CurrencyEnum.CNY), "自动核保", "system", TENANT_ID, null);
 
         fixture.given(createdEvent())
                 .when(command)
@@ -120,6 +120,6 @@ class UnderwritingSynchronousCommandTest {
         return new UnderwritingCreatedEvent(UNDERWRITING_ID, PolicyId.of("POL-001"), CustomerId.of("CUS-001"),
                 UnderwritingAmount.of(BigDecimal.ZERO, CurrencyEnum.CNY),
                 UnderwritingEnum.UnderwritingType.NEW_BUSINESS, LocalDateTime.now(), "system", TENANT_ID, "PRD-001",
-                "UW202401001");
+                "UW202401001", null);
     }
 }

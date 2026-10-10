@@ -32,6 +32,7 @@ import lombok.Setter;
 @Table(name = "t_underwriting_view", indexes = {
         @Index(name = "idx_uw_view_tenant_id", columnList = "tenant_id"),
         @Index(name = "idx_uw_view_policy_id", columnList = "policy_id, tenant_id"),
+        @Index(name = "idx_uw_view_insurance_id", columnList = "insurance_id, tenant_id"),
         @Index(name = "idx_uw_view_customer_id", columnList = "customer_id, tenant_id"),
         @Index(name = "idx_uw_view_status", columnList = "status, tenant_id"),
         @Index(name = "idx_uw_view_risk_level", columnList = "risk_level, tenant_id"),
@@ -53,6 +54,17 @@ public class UnderwritingView extends BaseView {
     /** 保单ID */
     @Column(name = "policy_id", length = 50, nullable = false)
     private String                              policyId;
+
+    /**
+     * 投保单号（跨域幂等键，g02-04 新增）
+     * <p>
+     * 与 {@link #policyId} <b>并存</b>、语义不同：出单链路历史上把投保单号装在 {@code policyId} 里
+     * （见迁移脚本 {@code underwriting_view_202609271200_weisun_ddl.sql} 的成因注释），本列是其正名。
+     * 供自动决策端点按投保单幂等复用核保单；保全核保无投保单语义，恒为空。
+     * </p>
+     */
+    @Column(name = "insurance_id", length = 50)
+    private String                              insuranceId;
 
     /** 客户ID */
     @Column(name = "customer_id", length = 50, nullable = false)

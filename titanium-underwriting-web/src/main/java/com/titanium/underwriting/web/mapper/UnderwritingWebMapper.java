@@ -15,6 +15,7 @@ import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
+import com.titanium.underwriting.valueobject.AutoDecideResult;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.ExtraPremium;
 import com.titanium.underwriting.valueobject.PolicyId;
@@ -112,6 +113,33 @@ public interface UnderwritingWebMapper {
             qualifiedByName = "extraPremiumFixedAmount")
     @Mapping(target = "surchargeReason", source = "extraPremium", qualifiedByName = "extraPremiumReason")
     UnderwritingResponse toResponse(UnderwritingDecidedEvent event);
+
+    /**
+     * 自动决策结果 → 对外 Response（Provider 用，g02-04 粗粒度端点）
+     * <p>
+     * 🔴 <b>与 {@link #toResponse(UnderwritingDecidedEvent)} 逐字段同形</b>：同一张核保单无论经四步路径
+     * 还是粗粒度端点出具结论，调用方读到的 {@code UnderwritingResponse} 必须一致——上游 policy 出单
+     * 适配器解析用的正是这份响应（状态/结论/加费/拒绝原因）。故此处只映射事件路径映射过的那批目标字段，
+     * {@code underwriterId}/{@code auditType} 等事件路径未填充者同样不填充。
+     * </p>
+     * <p>
+     * 差异仅有 {@code underwritingCompletedTime}：事件路径把它留空，而本端点的<b>幂等复用</b>分支
+     * （结论来自读模型）天然带该时间，若这里不映射，同一端点的「新建」与「复用」两条分支会给出不同的
+     * 时间列——端点内自洽优先，故映射 {@code decidedAt}（语义即「决策完成时刻」）。
+     * </p>
+     * <p>
+     * 🔴 {@code policyId ← insuranceId}：跨域响应里没有独立的投保单号字段，承保前置链路的投保单号历史
+     * 上就装在 {@code policyId} 里（见 policy 域出单适配器），本字段是上游回查的口径，不得改指向。
+     * </p>
+     *
+     * @param result 自动决策结果（新建路径来自决策事件，复用路径来自读模型）
+     * @return 核保 Response（与四步路径同形）
+     */
+    @Mapping(target = "policyId", source = "insuranceId")
+    @Mapping(target = "updatedBy", source = "decidedBy")
+    @Mapping(target = "underwritingCompletedTime", source = "decidedAt")
+    @Mapping(target = "surchargeReason", source = "extraPremiumReason")
+    UnderwritingResponse toResponse(AutoDecideResult result);
 
     // ========== 差异字段空安全转换（@Named，仅被上述声明式映射引用） ==========
 

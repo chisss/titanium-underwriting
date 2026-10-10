@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.valueobject.CustomerId;
+import com.titanium.underwriting.valueobject.InsuranceId;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -14,9 +15,15 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * {@code productCode} 为可选险种编码，供读模型投影存储，application 层据此查询产品核保配置。
  * {@code caseNo} 为核保案号（UW 前缀业务号），与保单号 POL/投保单号 INS 同源发号体系。
  * </p>
+ * <p>
+ * 🔴 {@code insuranceId}（g02-04 新增，**尾部追加**）承载投保单号语义，与 {@code policyId} 并存。
+ * 尾部追加保证存量事件 JSON 反序列化时该字段取 null（Jackson 缺字段兜底），**无需回放事件流**；
+ * 其读模型列由 Liquibase 迁移按「非保全核保行」回填，保全核保行的 {@code policyId} 是真保单号、
+ * 不得据以回填（见迁移脚本注释）。
+ * </p>
  */
 public record UnderwritingCreatedEvent(UnderwritingId underwritingId, PolicyId policyId, CustomerId customerId,
                                        UnderwritingAmount amount, UnderwritingEnum.UnderwritingType underwritingType,
                                        LocalDateTime createdAt, String createdBy, String tenantId,
-                                       String productCode, String caseNo) {
+                                       String productCode, String caseNo, InsuranceId insuranceId) {
 }

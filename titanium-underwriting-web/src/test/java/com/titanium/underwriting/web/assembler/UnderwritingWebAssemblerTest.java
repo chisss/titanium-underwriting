@@ -2,8 +2,10 @@ package com.titanium.underwriting.web.assembler;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 
@@ -11,11 +13,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.titanium.metadata.enums.CurrencyEnum;
+import com.titanium.metadata.enums.customer.CustomerEnum.CustomerGender;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.api.request.underwriting.AutoDecideUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
+import com.titanium.underwriting.exception.UnderwritingValidationException;
+import com.titanium.underwriting.valueobject.AutoDecideRequest;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
 import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
 
@@ -114,5 +120,143 @@ class UnderwritingWebAssemblerTest {
         partial.setFinancialAssessment(financial);
 
         assertDoesNotThrow(() -> assembler.toApiInput(partial));
+    }
+
+    @Test
+    @DisplayName("G02/AC-01 粗粒度要素直接取自请求本身，不因明细块字段不全而连带丢失")
+    void shouldAssembleCoarseRiskFactorsWithoutDependingOnDetailBlocks() {
+        SubmitUnderwritingInputApiRequest request = new SubmitUnderwritingInputApiRequest();
+        request.setAge(45);
+        request.setGender(CustomerGender.MALE);
+        // 明细块刻意「不完整」：职业无名称与危险系数、体检无血压血糖——明细块的守卫会整块丢弃
+        SubmitUnderwritingInputApiRequest.OccupationInput occupation =
+                new SubmitUnderwritingInputApiRequest.OccupationInput();
+        occupation.setOccupationCategory(4);
+        request.setOccupationInfo(occupation);
+        SubmitUnderwritingInputApiRequest.PhysicalExamInput exam =
+                new SubmitUnderwritingInputApiRequest.PhysicalExamInput();
+        exam.setBmi(new BigDecimal("29"));
+        request.setPhysicalExamResult(exam);
+
+        UnderwritingInput input = assembler.toApiInput(request);
+
+        // 明细块确被守卫丢弃（保持 NULL）——这正是改造前「职业+BMI 从未到达核保域」的现场
+        assertNull(input.occupationInfo());
+        assertNull(input.physicalExamResult());
+        // 粗粒度要素独立存活，四项俱全
+        assertNotNull(input.insuredRiskFactors());
+        assertEquals(Integer.valueOf(45), input.insuredRiskFactors().age());
+        assertEquals(CustomerGender.MALE, input.insuredRiskFactors().gender());
+        assertEquals(Integer.valueOf(4), input.insuredRiskFactors().occupationCategory());
+        assertEquals(new BigDecimal("29"), input.insuredRiskFactors().bmi());
+        assertEquals(true, input.hasAnyInput());
+    }
+
+    @Test
+    @DisplayName("G02/AC-01 四项要素均未提供时不构造空壳值对象")
+    void shouldOmitCoarseRiskFactorsWhenNothingProvided() {
+        assertNull(assembler.toApiInput(new SubmitUnderwritingInputApiRequest()).insuredRiskFactors());
+
+        // 只带提交人、无任何要素：同样不得构造空壳（避免事件载荷与日志噪声）
+        SubmitUnderwritingInputApiRequest onlySubmitter = new SubmitUnderwritingInputApiRequest();
+        onlySubmitter.setSubmittedBy("UW_001");
+        assertNull(assembler.toApiInput(onlySubmitter).insuredRiskFactors());
+        assertEquals(false, assembler.toApiInput(onlySubmitter).hasAnyInput());
+    }
+
+    @Test
+    @DisplayName("G02/AC-01 职业类别 0 是 api 子块的未设置哨兵值，按「未提供」处理；越界值则失败关闭")
+    void shouldDistinguishOccupationSentinelFromIllegalValue() {
+        SubmitUnderwritingInputApiRequest request = new SubmitUnderwritingInputApiRequest();
+        request.setAge(30);
+        SubmitUnderwritingInputApiRequest.OccupationInput occupation =
+                new SubmitUnderwritingInputApiRequest.OccupationInput();
+        // api 子块里 occupationCategory 是 int 基本类型，未设置时即为 0
+        occupation.setOccupationCategory(0);
+        request.setOccupationInfo(occupation);
+
+        UnderwritingInput input = assertDoesNotThrow(() -> assembler.toApiInput(request));
+
+        // 0 视为未提供：既不入要素，也不触发值对象校验
+        assertNull(input.insuredRiskFactors().occupationCategory());
+        assertEquals(Integer.valueOf(30), input.insuredRiskFactors().age());
+
+        // 越界类别（7）不是「未提供」而是非法数据：不得被静默丢弃，须失败关闭暴露上游缺陷
+        SubmitUnderwritingInputApiRequest invalid = new SubmitUnderwritingInputApiRequest();
+        SubmitUnderwritingInputApiRequest.OccupationInput outOfRange =
+                new SubmitUnderwritingInputApiRequest.OccupationInput();
+        outOfRange.setOccupationCategory(7);
+        invalid.setOccupationInfo(outOfRange);
+        assertThrows(UnderwritingValidationException.class, () -> assembler.toApiInput(invalid));
+    }
+
+    @Test
+    @DisplayName("G02/AC-05 自动决策装配：投保单号作幂等键，四要素提到顶层整体透传")
+    void shouldAssembleAutoDecideRequest() {
+        AutoDecideUnderwritingRequest request = new AutoDecideUnderwritingRequest();
+        request.setInsuranceId("INS-001");
+        request.setCustomerId("CUST-001");
+        request.setAmount(new BigDecimal("500000"));
+        request.setCurrency("CNY");
+        request.setProductCode("PRD-001");
+        request.setUnderwritingType(UnderwritingEnum.UnderwritingType.NEW_BUSINESS);
+        request.setOperatorId("OPERATOR-001");
+        request.setAge(45);
+        request.setGender(CustomerGender.MALE);
+        request.setOccupationCategory(4);
+        request.setBmi(new BigDecimal("29"));
+
+        AutoDecideRequest assembled = assembler.toAutoDecideRequest(request, "TENANT-001");
+
+        assertEquals("INS-001", assembled.insuranceId().value());
+        assertEquals("CUST-001", assembled.customerId().value());
+        assertEquals(0, new BigDecimal("500000").compareTo(assembled.amount().amount()));
+        assertEquals(CurrencyEnum.CNY, assembled.amount().currency());
+        assertEquals("PRD-001", assembled.productCode());
+        assertEquals("TENANT-001", assembled.tenantId());
+        assertEquals("OPERATOR-001", assembled.operatorId());
+        // 🔴 四要素直接取自顶层：不再借道 occupationInfo/physicalExamResult 明细子块——
+        // 明细块的「字段齐全」守卫会把「只有职业类别 + BMI」的出单链路输入整块丢掉（AC-01 成因）
+        assertNotNull(assembled.riskFactors());
+        assertEquals(Integer.valueOf(45), assembled.riskFactors().age());
+        assertEquals(CustomerGender.MALE, assembled.riskFactors().gender());
+        assertEquals(Integer.valueOf(4), assembled.riskFactors().occupationCategory());
+        assertEquals(new BigDecimal("29"), assembled.riskFactors().bmi());
+    }
+
+    @Test
+    @DisplayName("G02/AC-05 自动决策装配：未提供要素不构造空壳，核保类型/操作人/币种各按缺省归一")
+    void shouldNormalizeAutoDecideDefaultsWithoutBuildingEmptyRiskFactorShell() {
+        AutoDecideUnderwritingRequest request = new AutoDecideUnderwritingRequest();
+        request.setInsuranceId("INS-001");
+        request.setCustomerId("CUST-001");
+
+        AutoDecideRequest assembled = assembler.toAutoDecideRequest(request, "TENANT-001");
+
+        // 四项要素均未提供 ⇒ 传 null 而非空壳（null 与「提供了 0 岁/0 类职业」语义必须可区分）
+        assertNull(assembled.riskFactors());
+        assertEquals(UnderwritingEnum.UnderwritingType.NEW_BUSINESS, assembled.underwritingType());
+        // 无人工操作人时回落系统主体，绝不回落投保人（审计留痕须记真实主体）
+        assertEquals("SYSTEM_AUTO_UNDERWRITING", assembled.operatorId());
+        assertFalse(assembled.operatorId().contains(request.getCustomerId()));
+        assertEquals(CurrencyEnum.CNY, assembled.amount().currency());
+        assertEquals(0, BigDecimal.ZERO.compareTo(assembled.amount().amount()));
+    }
+
+    @Test
+    @DisplayName("G02/AC-05 自动决策装配：仅提供部分要素时只带该部分，不补零")
+    void shouldCarryOnlyProvidedRiskFactors() {
+        AutoDecideUnderwritingRequest request = new AutoDecideUnderwritingRequest();
+        request.setInsuranceId("INS-001");
+        request.setCustomerId("CUST-001");
+        request.setAge(30);
+
+        AutoDecideRequest assembled = assembler.toAutoDecideRequest(request, "TENANT-001");
+
+        assertNotNull(assembled.riskFactors());
+        assertEquals(Integer.valueOf(30), assembled.riskFactors().age());
+        assertNull(assembled.riskFactors().gender());
+        assertNull(assembled.riskFactors().occupationCategory());
+        assertNull(assembled.riskFactors().bmi());
     }
 }

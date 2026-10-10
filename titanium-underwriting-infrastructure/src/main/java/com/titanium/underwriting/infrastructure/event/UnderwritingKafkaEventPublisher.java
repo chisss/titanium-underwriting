@@ -18,9 +18,15 @@ import lombok.extern.slf4j.Slf4j;
  * 核保决策事件 Kafka 发布器（异步回流）
  * <p>
  * 订阅核保域 {@link UnderwritingDecidedEvent}，序列化为 JSON 外发到 Kafka，供 policy 域异步消费回写核保结论。
- * 这是核保结论「双轨回流」的异步轨：人工核保/批量核保等无法同步即时产出结论的场景，由本发布器推送，
- * policy 侧监听后经 {@code receiveUnderwritingResult} 回写投保单聚合。同步轨（投保出单主链路）仍走
- * policy 的 {@code UnderwritingDecisionGateway} 即时拉取。
+ * </p>
+ * <p>
+ * 🔴 <b>本发布器「无条件发布、不分决策来源」（原注释「异步轨仅覆盖无法同步即时产出结论的场景」已订正）</b>：
+ * 凡进入 {@link UnderwritingDecidedEvent} 的决策一律外发，因此<b>自动决策件会同时出现在两条轨道上</b>——
+ * 同步轨（policy 的 {@code UnderwritingDecisionGateway} 即时拉取，由出单 Saga 驱动）与异步轨（本发布器）。
+ * 两条轨道最终在 policy 域收敛到同一个 {@code ReceiveUnderwritingResultCommand}，
+ * <b>重复投递的去重由消费端聚合根承担</b>（{@code Insurance.isRedeliveredResult}：同核保单号 + 同结论
+ * ⇒ 静默幂等、不发事件）。消费端守卫测试见 policy 域 {@code InsuranceUnderwritingResultIdempotencyTest}
+ * （含跨轨形态用例）与 {@code UnderwritingDecidedEventListenerTest}。
  * </p>
  * <p>
  * <b>分区键取 {@code policyId}</b>：消费端 policy 域 {@code UnderwritingDecidedEventListener} 正是按投保单

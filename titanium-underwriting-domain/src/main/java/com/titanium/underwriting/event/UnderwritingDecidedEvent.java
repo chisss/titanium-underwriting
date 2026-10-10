@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.valueobject.ExtraPremium;
+import com.titanium.underwriting.valueobject.InsuranceId;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 
@@ -28,6 +29,12 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * 「产品没配」、后者「取不到」）。此前二者与「产品显式允许加费」在事件里完全不可区分——核保为何产出
  * 加费承保结论无从追溯。同为尾部追加，旧事件 JSON 无此字段时 Jackson 取 null，向后兼容。
  * </p>
+ * <p>
+ * 🔴 {@code insuranceId}（g02-04 新增，**尾部追加**）承载投保单号语义，与 {@code policyId} 并存。
+ * {@code policyId} 是跨域分区键维度（topic {@code underwriting-decided} 的分区键自 m0-713 起固定取
+ * {@code policyId}，**语义不得改动**），故新增字段只作语义正名与消费端双读，不改变分区键取值。
+ * 旧事件 JSON 无此字段时 Jackson 取 null，消费端回退 {@code policyId}，**无需回放**。
+ * </p>
  *
  * @author wei.sun
  * @since 2026/6/23
@@ -46,6 +53,7 @@ public record UnderwritingDecidedEvent(
         String decidedBy,
         String tenantId,
         String reason,
-        ProductConfigSource configSource
+        ProductConfigSource configSource,
+        InsuranceId insuranceId
 ) {
 }

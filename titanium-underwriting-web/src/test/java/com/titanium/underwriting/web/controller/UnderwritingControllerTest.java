@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -32,10 +33,13 @@ import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
 import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
+import com.titanium.underwriting.command.ManualReviewCommand;
+import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.web.assembler.UnderwritingWebAssembler;
 import com.titanium.underwriting.web.dto.CreateUnderwritingDTO;
+import com.titanium.underwriting.web.dto.ManualReviewDTO;
 import com.titanium.underwriting.web.mapper.UnderwritingWebMapper;
 import com.titanium.underwriting.web.vo.UnderwritingVO;
 
@@ -95,7 +99,7 @@ class UnderwritingControllerTest {
     void testCreateUnderwriting() {
         // Given
         CreateUnderwritingCommand command = new CreateUnderwritingCommand(new UnderwritingId("UW202401001"), null, null,
-                null, null, null, "tenant123", null, null);
+                null, null, null, "tenant123", null, null, null);
         UnderwritingResponse commandResponse = new UnderwritingResponse();
         commandResponse.setUnderwritingId("UW202401001");
         commandResponse.setPolicyId("POL202401001");
@@ -174,5 +178,35 @@ class UnderwritingControllerTest {
         assertNotNull(response);
         assertEquals(ApiResponse.SUCCESS_CODE, response.getCode());
         assertNotNull(response.getData());
+    }
+
+    @Test
+    void testManualReviewReturnsStatusChangedEventWithoutReadingProjection() {
+        // Given：转人工请求经装配器转命令，门面返回聚合冻结的状态变更事件（g02-03）
+        ManualReviewDTO request = new ManualReviewDTO();
+        request.setReviewComments("保额超阈值，需人工复核");
+        request.setReviewedBy("uw01");
+        ManualReviewCommand command = new ManualReviewCommand(new UnderwritingId("UW202401001"),
+                "保额超阈值，需人工复核", "uw01", "tenant123");
+        UnderwritingStatusChangedEvent event = new UnderwritingStatusChangedEvent(new UnderwritingId("UW202401001"),
+                UnderwritingEnum.UnderwritingStatus.REVIEW, UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW,
+                "保额超阈值，需人工复核", LocalDateTime.now(), "uw01", "tenant123");
+        UnderwritingResponse eventResponse = new UnderwritingResponse();
+        eventResponse.setUnderwritingId("UW202401001");
+
+        when(underwritingWebAssembler.toCommand(eq("UW202401001"), any(ManualReviewDTO.class), eq("tenant123")))
+                .thenReturn(command);
+        when(underwritingCommandService.manualReview(command)).thenReturn(event);
+        when(underwritingWebMapper.toResponse(event)).thenReturn(eventResponse);
+        when(underwritingWebMapper.toVO(eventResponse)).thenReturn(mockVO);
+
+        // When
+        ApiResponse<UnderwritingVO> response = underwritingController.manualReview("UW202401001", request);
+
+        // Then：写回执走同步命令结果，不触碰异步读模型
+        assertEquals(ApiResponse.SUCCESS_CODE, response.getCode());
+        assertNotNull(response.getData());
+        assertEquals("UW202401001", response.getData().getUnderwritingId());
+        verifyNoInteractions(underwritingQueryAppService);
     }
 }

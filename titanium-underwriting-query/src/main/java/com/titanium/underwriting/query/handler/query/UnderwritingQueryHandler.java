@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import com.titanium.underwriting.query.query.FindPendingUnderwritingTasksQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingByIdQuery;
+import com.titanium.underwriting.query.query.FindUnderwritingByInsuranceIdQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingByPolicyIdQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingHistoryByCustomerQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingStatisticsQuery;
@@ -44,6 +45,11 @@ public class UnderwritingQueryHandler {
     @QueryHandler
     public UnderwritingQueryResult handle(FindUnderwritingByPolicyIdQuery query) {
         return underwritingQueryService.findByPolicyId(query.policyId().value(), query.tenantId());
+    }
+
+    @QueryHandler
+    public List<UnderwritingQueryResult> handle(FindUnderwritingByInsuranceIdQuery query) {
+        return underwritingQueryService.findByInsuranceId(query.insuranceId().value(), query.tenantId());
     }
 
     @QueryHandler

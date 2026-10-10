@@ -152,6 +152,6 @@ class UnderwritingKafkaEventPublisherTest {
                 "UW_USER",
                 "TENANT_001",
                 null,
-                ProductConfigSource.CONFIGURED);
+                ProductConfigSource.CONFIGURED, null);
     }
 }

@@ -4,7 +4,9 @@ import org.axonframework.commandhandling.gateway.CommandGateway;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.titanium.underwriting.application.orchestration.AutoDecisionOrchestrator;
 import com.titanium.underwriting.application.orchestration.UnderwritingDecisionOrchestrator;
+import com.titanium.underwriting.application.orchestration.UnderwritingRoutingOrchestrator;
 import com.titanium.underwriting.command.AssessMaintenanceUnderwritingCommand;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
@@ -16,6 +18,8 @@ import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.generator.UnderwritingNoGenerator;
+import com.titanium.underwriting.valueobject.AutoDecideRequest;
+import com.titanium.underwriting.valueobject.AutoDecideResult;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +40,9 @@ import lombok.extern.slf4j.Slf4j;
 public class UnderwritingCommandService {
 
     private final CommandGateway                  commandGateway;
+    private final AutoDecisionOrchestrator        autoDecisionOrchestrator;
     private final UnderwritingDecisionOrchestrator underwritingDecisionOrchestrator;
+    private final UnderwritingRoutingOrchestrator underwritingRoutingOrchestrator;
     private final UnderwritingNoGenerator         underwritingNoGenerator;
 
     /**
@@ -54,7 +60,8 @@ public class UnderwritingCommandService {
         CreateUnderwritingCommand numbered = command.caseNo() == null
                 ? new CreateUnderwritingCommand(command.underwritingId(), command.policyId(), command.customerId(),
                         command.amount(), command.underwritingType(), command.createdBy(), command.tenantId(),
-                        command.productCode(), underwritingNoGenerator.generateUnderwritingNo(command.tenantId()))
+                        command.productCode(), underwritingNoGenerator.generateUnderwritingNo(command.tenantId()),
+                        command.insuranceId())
                 : command;
         commandGateway.sendAndWait(numbered);
         return numbered;
@@ -67,21 +74,30 @@ public class UnderwritingCommandService {
     }
 
     /**
-     * 执行核保
+     * 执行核保（g02-02：经金额路由编排器，人工复核阈值取产品核保配置）
+     * <p>
+     * 编排职责下沉 {@link UnderwritingRoutingOrchestrator}：加载聚合取险种编码 → 取产品核保配置 →
+     * 充实命令的人工复核阈值 → 派发。判定规则（阈值比较、输入优先）仍在聚合根，本门面零业务规则。
+     * </p>
      *
-     * @param command 执行核保命令
+     * @param command 执行核保命令（web/api 侧构造，阈值由编排器充实）
      */
     public UnderwritingStatusChangedEvent underwrite(UnderwriteCommand command) {
-        return commandGateway.sendAndWait(command);
+        return underwritingRoutingOrchestrator.route(command);
     }
 
     /**
-     * 手动审核
+     * 转人工复核（g02-03：web 端点与 api 契约两个入口平行收敛到本方法）
+     * <p>
+     * 入参即领域命令，仅经 {@link CommandGateway} 派发；返回聚合冻结的状态变更事件供调用方回执
+     * （禁回读读模型——投影有延迟）。终态（已出结论）发起时聚合抛异常且不产生事件。
+     * </p>
      *
-     * @param command 手动审核命令
+     * @param command 转人工命令
+     * @return 状态变更事件（newStatus = MANUAL_REVIEW）
      */
-    public void manualReview(ManualReviewCommand command) {
-        commandGateway.sendAndWait(command);
+    public UnderwritingStatusChangedEvent manualReview(ManualReviewCommand command) {
+        return commandGateway.sendAndWait(command);
     }
 
     /**
@@ -120,5 +136,20 @@ public class UnderwritingCommandService {
      */
     public UnderwritingDecidedEvent decide(DecideUnderwritingCommand command, String productCode) {
         return underwritingDecisionOrchestrator.decide(command, productCode);
+    }
+
+    /**
+     * 自动决策（粗粒度，g02-04 / AC-05：web 端点与 api 契约两个入口平行收敛到本方法）
+     * <p>
+     * 把上游原本拼装的「创建核保 → 提交输入 → 决策」四步远程调用收敛为一次调用，
+     * 编排职责全部下沉 {@link AutoDecisionOrchestrator}：投保单号幂等判定（复用/续跑/新建）→
+     * 取号 → 提交输入 → 经决策编排器出具结论。本门面零业务规则。
+     * </p>
+     *
+     * @param request 自动决策请求（投保单号为幂等键）
+     * @return 核保结论（新建与幂等复用同形）
+     */
+    public AutoDecideResult autoDecide(AutoDecideRequest request) {
+        return autoDecisionOrchestrator.autoDecide(request);
     }
 }

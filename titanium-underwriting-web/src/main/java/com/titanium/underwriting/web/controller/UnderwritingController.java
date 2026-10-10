@@ -26,6 +26,7 @@ import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
+import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
@@ -37,6 +38,7 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.web.assembler.UnderwritingWebAssembler;
 import com.titanium.underwriting.web.dto.CreateUnderwritingDTO;
 import com.titanium.underwriting.web.dto.DecideUnderwritingDTO;
+import com.titanium.underwriting.web.dto.ManualReviewDTO;
 import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
 import com.titanium.underwriting.web.dto.UnderwriteDTO;
 import com.titanium.underwriting.web.mapper.UnderwritingStatisticsWebMapper;
@@ -143,6 +145,26 @@ public class UnderwritingController {
         String tenantId = RequestContextHolder.requireTenantId();
         DecideUnderwritingCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
         UnderwritingDecidedEvent event = underwritingCommandService.decide(command);
+        return ApiResponse.success(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
+    }
+
+    /**
+     * 转人工审核（把核保件置为人工复核状态）
+     * <p>
+     * 与远程契约 {@code UnderwritingApi#manualReview} 平行收敛到同一
+     * {@link UnderwritingCommandService#manualReview}；已出结论的终态核保件发起转人工会被聚合拒绝。
+     * </p>
+     *
+     * @param underwritingId 核保ID
+     * @param request        转人工审核请求
+     * @return 更新后的核保VO
+     */
+    @PutMapping("/{underwritingId}/manual-review")
+    public ApiResponse<UnderwritingVO> manualReview(@PathVariable String underwritingId,
+                                                    @Valid @RequestBody ManualReviewDTO request) {
+        String tenantId = RequestContextHolder.requireTenantId();
+        ManualReviewCommand command = underwritingWebAssembler.toCommand(underwritingId, request, tenantId);
+        UnderwritingStatusChangedEvent event = underwritingCommandService.manualReview(command);
         return ApiResponse.success(underwritingWebMapper.toVO(underwritingWebMapper.toResponse(event)));
     }
 

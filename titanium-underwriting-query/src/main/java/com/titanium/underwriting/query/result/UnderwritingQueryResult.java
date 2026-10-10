@@ -26,6 +26,9 @@ public class UnderwritingQueryResult {
     /** 保单ID */
     private String                              policyId;
 
+    /** 投保单号（跨域幂等键，g02-04 新增；与保单ID并存，保全核保为空） */
+    private String                              insuranceId;
+
     /** 客户ID */
     private String                              customerId;
 

@@ -6,18 +6,24 @@ import org.springframework.stereotype.Component;
 
 import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.underwriting.api.request.underwriting.AutoDecideUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
+import com.titanium.underwriting.api.request.underwriting.ManualReviewRequest;
 import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
 import com.titanium.underwriting.api.request.underwriting.UnderwriteRequest;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
+import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
+import com.titanium.underwriting.valueobject.AutoDecideRequest;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.FinancialAssessment;
 import com.titanium.underwriting.valueobject.HealthDeclaration;
+import com.titanium.underwriting.valueobject.InsuranceId;
+import com.titanium.underwriting.valueobject.InsuredRiskFactors;
 import com.titanium.underwriting.valueobject.OccupationInfo;
 import com.titanium.underwriting.valueobject.PhysicalExamResult;
 import com.titanium.underwriting.valueobject.PolicyId;
@@ -27,6 +33,7 @@ import com.titanium.underwriting.valueobject.UnderwritingInput;
 import com.titanium.underwriting.valueobject.VehicleRiskInfo;
 import com.titanium.underwriting.web.dto.CreateUnderwritingDTO;
 import com.titanium.underwriting.web.dto.DecideUnderwritingDTO;
+import com.titanium.underwriting.web.dto.ManualReviewDTO;
 import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
 import com.titanium.underwriting.web.dto.UnderwriteDTO;
 
@@ -43,6 +50,15 @@ import com.titanium.underwriting.web.dto.UnderwriteDTO;
 @Component
 public class UnderwritingWebAssembler {
 
+    /**
+     * 系统自动核保主体（操作人缺省值）
+     * <p>
+     * 🔴 与 policy 域出单适配器的系统主体字面量逐字一致，是跨域审计口径，不得改名（见
+     * {@link #resolveOperatorId}）。
+     * </p>
+     */
+    private static final String SYSTEM_OPERATOR = "SYSTEM_AUTO_UNDERWRITING";
+
     // ========== HTTP Request（web DTO）→ 领域命令（Controller 用） ==========
 
     /**
@@ -57,7 +73,7 @@ public class UnderwritingWebAssembler {
         CurrencyEnum currency = resolveCurrency(request.getCurrency());
         return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
                 CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(resolveAmount(request.getAmount()), currency),
-                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode(), null);
+                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode(), null, null);
     }
 
     /**
@@ -69,8 +85,10 @@ public class UnderwritingWebAssembler {
      * @return 执行核保命令
      */
     public UnderwriteCommand toCommand(String underwritingId, UnderwriteDTO request, String tenantId) {
+        // manualReviewAmountThreshold 由 application 层金额路由编排器依产品核保配置充实（g02-02），
+        // web 侧置 null——命令在编排器派发前必经其充实，web 直连不构成合法路径（同 DecideUnderwritingDTO 先例）
         return new UnderwriteCommand(new UnderwritingId(underwritingId), new UnderwritingAmount(request.getAmount()),
-                request.getReason(), request.getUnderwriteBy(), tenantId);
+                request.getReason(), request.getUnderwriteBy(), tenantId, null);
     }
 
     /**
@@ -103,6 +121,19 @@ public class UnderwritingWebAssembler {
                 request.getDecidedBy(), tenantId, null, null, null);
     }
 
+    /**
+     * 转人工审核请求 → 转人工命令（Controller 用，g02-03）
+     *
+     * @param underwritingId 核保ID（path）
+     * @param request        转人工审核请求（web）
+     * @param tenantId       租户ID（请求头）
+     * @return 转人工命令
+     */
+    public ManualReviewCommand toCommand(String underwritingId, ManualReviewDTO request, String tenantId) {
+        return new ManualReviewCommand(new UnderwritingId(underwritingId), request.getReviewComments(),
+                request.getReviewedBy(), tenantId);
+    }
+
     // ========== 远程 DTO（api 契约）→ 领域命令（Provider 用） ==========
 
     /**
@@ -114,9 +145,10 @@ public class UnderwritingWebAssembler {
      */
     public CreateUnderwritingCommand toCommand(CreateUnderwritingRequest request, String tenantId) {
         CurrencyEnum currency = resolveCurrency(request.getCurrency());
+        // 四步建单契约不承载投保单号维度（无该字段），insuranceId 置 null——幂等键由 :auto-decide 端点承担
         return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
                 CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(resolveAmount(request.getAmount()), currency),
-                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode(), null);
+                request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode(), null, null);
     }
 
     /**
@@ -128,8 +160,9 @@ public class UnderwritingWebAssembler {
      * @return 执行核保命令
      */
     public UnderwriteCommand toCommand(String underwritingId, UnderwriteRequest request, String tenantId) {
+        // 同 web 侧：阈值由 application 层金额路由编排器依产品核保配置充实（g02-02），契约侧不承载该字段
         return new UnderwriteCommand(new UnderwritingId(underwritingId), new UnderwritingAmount(request.getAmount()),
-                request.getReason(), request.getUnderwriteBy(), tenantId);
+                request.getReason(), request.getUnderwriteBy(), tenantId, null);
     }
 
     /**
@@ -162,7 +195,47 @@ public class UnderwritingWebAssembler {
                 request.getDecidedBy(), tenantId, null, null, null);
     }
 
-    // ========== 险种输入装配（分块判空 + 值对象内聚校验） ==========
+    /**
+     * 远程转人工审核请求 → 转人工命令（Provider 用，g02-03）
+     *
+     * @param underwritingId 核保ID（path）
+     * @param request        转人工审核请求（api 契约）
+     * @param tenantId       租户ID（请求头）
+     * @return 转人工命令
+     */
+    public ManualReviewCommand toCommand(String underwritingId, ManualReviewRequest request, String tenantId) {
+        return new ManualReviewCommand(new UnderwritingId(underwritingId), request.getReviewComments(),
+                request.getReviewedBy(), tenantId);
+    }
+
+    /**
+     * 远程自动决策请求 → 自动决策请求值对象（Provider 用，g02-04）
+     * <p>
+     * 粗粒度端点的入参装配：投保单号为幂等键，风险要素四项<b>可全空</b>（全空时按「未提供任何要素」
+     * 传 {@code null}，不构造空壳容器，避免事件载荷噪声——同 {@link #toApiInsuredRiskFactors} 口径）。
+     * </p>
+     * <p>
+     * 🔴 与四步建单契约的差别：那条链路的风险要素藏在 {@code SubmitUnderwritingInputApiRequest} 的
+     * {@code occupationInfo}/{@code physicalExamResult} 明细子块里，而明细块守卫要求「字段齐全」，
+     * 出单链路只提供职业类别与 BMI 时整块被丢弃。本契约把四项要素<b>提到顶层</b>，
+     * 不再借道明细块（G02/AC-01 的成因对策）。
+     * </p>
+     *
+     * @param request  自动决策请求（api 契约）
+     * @param tenantId 租户ID（请求头）
+     * @return 自动决策请求值对象
+     */
+    public AutoDecideRequest toAutoDecideRequest(AutoDecideUnderwritingRequest request, String tenantId) {
+        InsuredRiskFactors factors = new InsuredRiskFactors(request.getAge(), request.getGender(),
+                request.getOccupationCategory(), request.getBmi());
+        return new AutoDecideRequest(InsuranceId.of(request.getInsuranceId()),
+                CustomerId.of(request.getCustomerId()),
+                UnderwritingAmount.of(resolveAmount(request.getAmount()), resolveCurrency(request.getCurrency())),
+                resolveUnderwritingType(request.getUnderwritingType()), request.getProductCode(),
+                factors.hasAny() ? factors : null, resolveOperatorId(request.getOperatorId()), tenantId);
+    }
+
+    // ========== 类型转换与归一化 ==========
 
     /**
      * 提交核保输入请求 → 核保输入容器值对象
@@ -187,7 +260,32 @@ public class UnderwritingWebAssembler {
                 .physicalExamResult(toApiExam(request.getPhysicalExamResult()))
                 .occupationInfo(toApiOccupation(request.getOccupationInfo()))
                 .financialAssessment(toApiFinancial(request.getFinancialAssessment()))
+                .insuredRiskFactors(toApiInsuredRiskFactors(request))
                 .build();
+    }
+
+    /**
+     * api 请求 → 被保人粗粒度风险要素（G02/AC-01）
+     * <p>
+     * 🔴 四项要素<b>直接取自请求本身</b>，而不是从上面已装配的明细块回填：明细块的守卫要求
+     * 字段齐全（如体检须血压/血糖俱全、职业须名称与危险系数俱全），出单链路只提供
+     * 职业类别与 BMI 时整个明细块会被丢弃，若从明细块回填粗粒度要素，要素会随之一起丢失
+     * ——这正是改造前「职业+BMI 从未真正到达核保域」的成因。
+     * </p>
+     *
+     * @param request api 提交核保输入请求
+     * @return 粗粒度风险要素；四项均未提供时返回 {@code null}（不构造空壳，避免事件载荷噪声）
+     */
+    private InsuredRiskFactors toApiInsuredRiskFactors(SubmitUnderwritingInputApiRequest request) {
+        // 职业类别在 api 子块里是 int 基本类型，未设置时为 0；合法类别为 1-6，故以 >=1 判「已提供」
+        Integer occupationCategory = request.getOccupationInfo() != null
+                && request.getOccupationInfo().getOccupationCategory() >= 1
+                        ? request.getOccupationInfo().getOccupationCategory()
+                        : null;
+        BigDecimal bmi = request.getPhysicalExamResult() != null ? request.getPhysicalExamResult().getBmi() : null;
+        InsuredRiskFactors factors = new InsuredRiskFactors(request.getAge(), request.getGender(),
+                occupationCategory, bmi);
+        return factors.hasAny() ? factors : null;
     }
 
     // ========== 类型转换与归一化 ==========
@@ -208,6 +306,40 @@ public class UnderwritingWebAssembler {
     /** 空金额表示上游尚未形成标准保费，按零金额进入风险资料核保。 */
     public BigDecimal resolveAmount(BigDecimal amount) {
         return amount == null ? BigDecimal.ZERO : amount;
+    }
+
+    /**
+     * 核保类型缺省回落新单核保
+     * <p>
+     * 粗粒度端点的调用方是出单主链路，其业务语义恒为「新投保单的首次核保」，故缺省即
+     * {@link UnderwritingEnum.UnderwritingType#NEW_BUSINESS}；续保/批改/复效场景由调用方显式声明。
+     * </p>
+     *
+     * @param underwritingType 核保类型（可为空）
+     * @return 核保类型枚举
+     */
+    public UnderwritingEnum.UnderwritingType resolveUnderwritingType(
+            UnderwritingEnum.UnderwritingType underwritingType) {
+        return underwritingType == null ? UnderwritingEnum.UnderwritingType.NEW_BUSINESS : underwritingType;
+    }
+
+    /**
+     * 操作人缺省回落系统主体
+     * <p>
+     * 🔴 字面量与 policy 域出单适配器的系统主体**逐字一致**（{@code SYSTEM_AUTO_UNDERWRITING}）：
+     * 该值经核保事件流的 {@code decidedBy} 固化，是决策审计里「这是系统自动决策、非某位核保员所为」
+     * 的唯一标记，也是跨域对账口径，一经发布不可改名。
+     * </p>
+     * <p>
+     * ⚠️ 刻意<b>不</b>回落为请求上下文里的操作人：核保决策的主体应是发起决策的系统链路，
+     * 而非恰好点击了出单按钮的柜员（柜员信息经投保单侧的审计字段留痕）。
+     * </p>
+     *
+     * @param operatorId 上游显式声明的操作人（可为空）
+     * @return 操作人标识
+     */
+    public String resolveOperatorId(String operatorId) {
+        return operatorId == null || operatorId.isBlank() ? SYSTEM_OPERATOR : operatorId;
     }
 
     /** 空币种沿用跨域契约的人民币默认值。 */

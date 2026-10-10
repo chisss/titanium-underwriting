@@ -74,7 +74,7 @@ class UnderwritingWebMapperTest {
                 PolicyId.of("POL-001"), UnderwritingEnum.RiskLevel.STANDARD,
                 UnderwritingEnum.ConclusionType.ACCEPT, UnderwritingEnum.AuditType.AUTOMATIC,
                 UnderwritingEnum.UnderwritingStatus.PENDING, UnderwritingEnum.UnderwritingStatus.STANDARD,
-                0, null, LocalDateTime.now(), "system", "TENANT-001", null, ProductConfigSource.CONFIGURED);
+                0, null, LocalDateTime.now(), "system", "TENANT-001", null, ProductConfigSource.CONFIGURED, null);
 
         UnderwritingResponse response = mapper.toResponse(event);
 

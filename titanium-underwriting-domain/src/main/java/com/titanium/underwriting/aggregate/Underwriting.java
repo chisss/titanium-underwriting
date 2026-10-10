@@ -36,6 +36,7 @@ import com.titanium.underwriting.exception.UnderwritingValidationException;
 import com.titanium.underwriting.service.MaintenanceUnderwritingCommandValidator;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.ExtraPremium;
+import com.titanium.underwriting.valueobject.InsuranceId;
 import com.titanium.underwriting.valueobject.MaintenanceRiskFieldChange;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
@@ -56,8 +57,19 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder(builderMethodName = "builder")
 @Getter
 public class Underwriting extends BaseAggregate {
-    /** 自动核保金额上限：超过该金额且无险种输入时转人工复核（回退规则） */
-    private static final BigDecimal AUTO_APPROVE_AMOUNT_LIMIT = BigDecimal.valueOf(100000);
+    /**
+     * 人工复核金额阈值**兜底默认值**（唯一的兜底定义处）
+     * <p>
+     * 仅当产品核保配置的人工复核阈值缺失（产品未配置 / 产品域取不到 / 产品编码为空）时生效，
+     * 语义为「配置缺失不放松风控」，与产品显式配置的阈值走同一判定分支（判定入口唯一）。
+     * </p>
+     * <p>
+     * 🔴 不得新增第二处兜底常量；阈值权威侧是 **product 域产品配置**
+     * （经 {@code ProductUnderwritingConfigPort.manualReviewAmountThreshold()} 取得，
+     * 由 application 层编排器充实进 {@code UnderwriteCommand}）。
+     * </p>
+     */
+    private static final BigDecimal FALLBACK_MANUAL_REVIEW_AMOUNT_THRESHOLD = BigDecimal.valueOf(100000);
 
     /** 次标准体风险评分基准（评分超出该基准的部分折算加费幅度，与 UnderwritingInput 阈值一致） */
     private static final int SUB_STANDARD_SCORE_BASE = 30;
@@ -76,6 +88,18 @@ public class Underwriting extends BaseAggregate {
     @AggregateIdentifier
     private UnderwritingId                      underwritingId;
     private PolicyId                            policyId;
+    /**
+     * 投保单号（g02-04 新增，与 {@link #policyId} 并存）
+     * <p>
+     * 出单主链路发起的新单核保，其来源单据是**投保单**而非保单；改造前该号被写入 {@link #policyId}，
+     * 与保全核保路径（该字段是真保单号）语义混用。本字段承载正确语义并作为自动决策幂等键来源。
+     * </p>
+     * <p>
+     * 🔴 存量事件流无此字段，回放时取 null（Jackson 缺字段兜底）；新事件由创建命令尾部追加的
+     * {@code insuranceId} 填充。两字段并存是用户裁示的兼容方案，**不得**据新字段反向改写旧字段。
+     * </p>
+     */
+    private InsuranceId                         insuranceId;
     private CustomerId                          customerId;
     /** 核保案号（UW 前缀业务号，创建时由应用层发号生成） */
     private String                              caseNo;
@@ -119,7 +143,8 @@ public class Underwriting extends BaseAggregate {
         // Publish event
         AggregateLifecycle.apply(new UnderwritingCreatedEvent(command.underwritingId(), command.policyId(),
                 command.customerId(), command.amount(), command.underwritingType(), LocalDateTime.now(),
-                command.createdBy(), command.tenantId(), command.productCode(), command.caseNo()));
+                command.createdBy(), command.tenantId(), command.productCode(), command.caseNo(),
+                command.insuranceId()));
     }
 
     /** 保全核保使用独立输入模型，并以确定性聚合标识保证远程重试幂等。 */
@@ -167,15 +192,25 @@ public class Underwriting extends BaseAggregate {
         return event;
     }
 
+    /**
+     * 判定核保状态：先按已提交险种专属输入的风险等级（充血模型），无输入时回退金额阈值规则。
+     * <p>
+     * 金额阈值取产品核保配置（g02-02）——由 application 层编排器经产品域取得后充实进命令；
+     * 命令未携带阈值（产品未配置 / 取不到）时回退 {@link #FALLBACK_MANUAL_REVIEW_AMOUNT_THRESHOLD}，
+     * 判定入口仍唯一，不构成第二权威。
+     * </p>
+     */
     private UnderwritingEnum.UnderwritingStatus determineUnderwritingStatus(UnderwriteCommand command) {
         // 优先基于已提交险种专属输入评估的风险等级判定（充血模型），无输入时回退金额规则
         if (this.underwritingInput != null && this.underwritingInput.hasAnyInput()) {
             UnderwritingEnum.RiskLevel assessedLevel = this.underwritingInput.assessRiskLevel();
             return mapRiskLevelToStatus(assessedLevel);
         }
-        // 回退规则：金额超过自动核保阈值需转人工复核
-        // TODO 规则引擎接入：金额阈值应改由 titanium-rule-engine 按险种/租户配置
-        if (command.amount().amount().compareTo(AUTO_APPROVE_AMOUNT_LIMIT) > 0) {
+        // 金额规则：阈值来自产品配置，缺失时取兜底默认（详见常量 javadoc，语义为「配置缺失不放松风控」）
+        BigDecimal manualReviewAmountThreshold = command.manualReviewAmountThreshold() != null
+                ? command.manualReviewAmountThreshold()
+                : FALLBACK_MANUAL_REVIEW_AMOUNT_THRESHOLD;
+        if (command.amount().amount().compareTo(manualReviewAmountThreshold) > 0) {
             return UnderwritingEnum.UnderwritingStatus.REVIEW;
         }
         return UnderwritingEnum.UnderwritingStatus.APPROVED;
@@ -246,7 +281,7 @@ public class Underwriting extends BaseAggregate {
         UnderwritingDecidedEvent event = new UnderwritingDecidedEvent(command.underwritingId(), this.policyId,
                 assessedRiskLevel, conclusion,
                 command.auditType(), oldStatus, newStatus, riskScore, derivedExtraPremium, LocalDateTime.now(),
-                command.decidedBy(), command.tenantId(), reason, command.configSource());
+                command.decidedBy(), command.tenantId(), reason, command.configSource(), this.insuranceId);
         AggregateLifecycle.apply(event);
         return event;
     }
@@ -317,8 +352,19 @@ public class Underwriting extends BaseAggregate {
         return mapConclusionToStatus(deriveConclusion(level));
     }
 
+    /**
+     * 转人工复核（g02-03）
+     * <p>
+     * 把核保件置为 {@code MANUAL_REVIEW} 并返回状态变更事件——与其余写处理器一致「apply 后 return」，
+     * 使 web/api 两个入口能直接回执最新状态，无需回读读模型（投影有延迟）。
+     * 终态（已出结论）发起时由 {@link #requireNotTerminal(String)} 拒绝且不产生事件。
+     * </p>
+     *
+     * @param command 转人工命令
+     * @return 状态变更事件（newStatus = MANUAL_REVIEW）
+     */
     @CommandHandler
-    public void handle(ManualReviewCommand command) {
+    public UnderwritingStatusChangedEvent handle(ManualReviewCommand command) {
         // Validate command
         validateManualReviewCommand(command);
         requireNotTerminal("ManualReviewCommand");
@@ -328,8 +374,10 @@ public class Underwriting extends BaseAggregate {
         UnderwritingEnum.UnderwritingStatus newStatus = UnderwritingEnum.UnderwritingStatus.MANUAL_REVIEW;
 
         // Publish status changed event
-        AggregateLifecycle.apply(new UnderwritingStatusChangedEvent(command.underwritingId(), oldStatus, newStatus,
-                command.reviewComments(), LocalDateTime.now(), command.reviewedBy(), command.tenantId()));
+        UnderwritingStatusChangedEvent event = new UnderwritingStatusChangedEvent(command.underwritingId(), oldStatus,
+                newStatus, command.reviewComments(), LocalDateTime.now(), command.reviewedBy(), command.tenantId());
+        AggregateLifecycle.apply(event);
+        return event;
     }
 
     // Event Sourcing Handlers
@@ -337,6 +385,7 @@ public class Underwriting extends BaseAggregate {
     public void on(UnderwritingCreatedEvent event) {
         this.underwritingId = event.underwritingId();
         this.policyId = event.policyId();
+        this.insuranceId = event.insuranceId();
         this.customerId = event.customerId();
         this.caseNo = event.caseNo();
         this.amount = event.amount();

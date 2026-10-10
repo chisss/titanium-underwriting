@@ -29,6 +29,15 @@ public interface UnderwritingQueryService {
     UnderwritingQueryResult findByPolicyId(String policyId, String tenantId);
 
     /**
+     * 根据投保单号查询核保单（按创建时间升序，可能多行）
+     * <p>
+     * 供自动决策端点按投保单幂等复用/续跑核保单（g02-04）。读模型未对投保单号建唯一约束，故返回列表，
+     * 由调用方收敛（已出结论者优先复用，否则续跑最早一张）。
+     * </p>
+     */
+    List<UnderwritingQueryResult> findByInsuranceId(String insuranceId, String tenantId);
+
+    /**
      * 根据状态分页查询
      */
     Page<UnderwritingQueryResult> findByStatus(UnderwritingEnum.UnderwritingStatus status, String tenantId,

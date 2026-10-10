@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.query.query.FindUnderwritingByIdQuery;
+import com.titanium.underwriting.query.query.FindUnderwritingByInsuranceIdQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingByPolicyIdQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingHistoryByCustomerQuery;
 import com.titanium.underwriting.query.query.FindUnderwritingStatisticsQuery;
@@ -19,6 +20,7 @@ import com.titanium.underwriting.query.result.UnderwritingQueryResult;
 import com.titanium.underwriting.query.result.UnderwritingStatisticsResult;
 import com.titanium.underwriting.query.service.UnderwritingQueryService;
 import com.titanium.underwriting.valueobject.CustomerId;
+import com.titanium.underwriting.valueobject.InsuranceId;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 
@@ -59,6 +61,16 @@ public class UnderwritingQueryAppService {
         return queryGateway
                 .query(new FindUnderwritingByPolicyIdQuery(policyId, tenantId),
                         ResponseTypes.instanceOf(UnderwritingQueryResult.class))
+                .join();
+    }
+
+    /**
+     * 根据投保单号查询核保单（按创建时间升序，可能多行；g02-04 幂等查询）
+     */
+    public List<UnderwritingQueryResult> findUnderwritingsByInsuranceId(InsuranceId insuranceId, String tenantId) {
+        return queryGateway
+                .query(new FindUnderwritingByInsuranceIdQuery(insuranceId, tenantId),
+                        ResponseTypes.multipleInstancesOf(UnderwritingQueryResult.class))
                 .join();
     }
 

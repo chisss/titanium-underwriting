@@ -14,8 +14,10 @@ import com.titanium.common.context.RequestContextHolder;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.metadata.response.ApiResponse;
 import com.titanium.underwriting.api.UnderwritingApi;
+import com.titanium.underwriting.api.request.underwriting.AutoDecideUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
+import com.titanium.underwriting.api.request.underwriting.ManualReviewRequest;
 import com.titanium.underwriting.api.request.underwriting.SubmitUnderwritingInputApiRequest;
 import com.titanium.underwriting.api.request.underwriting.UnderwriteRequest;
 import com.titanium.underwriting.api.response.underwriting.UnderwritingResponse;
@@ -23,12 +25,15 @@ import com.titanium.underwriting.application.query.UnderwritingQueryAppService;
 import com.titanium.underwriting.application.service.UnderwritingCommandService;
 import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
+import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
 import com.titanium.underwriting.event.UnderwritingInputSubmittedEvent;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.result.UnderwritingQueryResult;
+import com.titanium.underwriting.valueobject.AutoDecideRequest;
+import com.titanium.underwriting.valueobject.AutoDecideResult;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.web.assembler.UnderwritingWebAssembler;
@@ -73,6 +78,16 @@ public class UnderwritingApiProvider implements UnderwritingApi {
     }
 
     @Override
+    public ApiResponse<UnderwritingResponse> autoDecide(AutoDecideUnderwritingRequest request) {
+        // g02-04 粗粒度端点：一次调用完成「创建/幂等复用 + 提交输入 + 出具决策」，回执取自命令结果
+        // （决策事件或幂等命中的读模型），不经 provider 回读读模型——写端点的同步回执契约与四步路径一致
+        AutoDecideRequest autoDecideRequest = underwritingWebAssembler.toAutoDecideRequest(request,
+                RequestContextHolder.requireTenantId());
+        AutoDecideResult result = underwritingCommandService.autoDecide(autoDecideRequest);
+        return ApiResponse.success(underwritingWebMapper.toResponse(result));
+    }
+
+    @Override
     public ApiResponse<UnderwritingResponse> getUnderwritingById(String underwritingId) {
         // 读：查读模型，未命中时 data 为 null（契约语义）
         return ApiResponse.success(queryResponse(underwritingId));
@@ -106,6 +121,15 @@ public class UnderwritingApiProvider implements UnderwritingApi {
         DecideUnderwritingCommand command = underwritingWebAssembler.toCommand(underwritingId, request, RequestContextHolder.requireTenantId());
         // UW-4：透传险种编码，application 层据此读取产品核保配置充实决策命令（加费许可等）
         UnderwritingDecidedEvent event = underwritingCommandService.decide(command, request.getProductCode());
+        return ApiResponse.success(underwritingWebMapper.toResponse(event));
+    }
+
+    @Override
+    public ApiResponse<UnderwritingResponse> manualReview(String underwritingId, ManualReviewRequest request) {
+        // g02-03：与 web 端点 UnderwritingController#manualReview 平行收敛到同一命令门面
+        ManualReviewCommand command = underwritingWebAssembler.toCommand(underwritingId, request,
+                RequestContextHolder.requireTenantId());
+        UnderwritingStatusChangedEvent event = underwritingCommandService.manualReview(command);
         return ApiResponse.success(underwritingWebMapper.toResponse(event));
     }
 

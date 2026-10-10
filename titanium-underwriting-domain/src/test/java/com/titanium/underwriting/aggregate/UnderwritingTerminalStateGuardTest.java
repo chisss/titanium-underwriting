@@ -68,9 +68,11 @@ class UnderwritingTerminalStateGuardTest {
 
     @Test
     void manualReviewOnTerminalContractIsRejectedSoConcludedCasesStayClosed() {
+        // g02-03：终态拒绝还须证明「未留下半截状态」——被拒时聚合不得发布任何事件
         fixture.given(createdEvent(), inputSubmittedEvent(), declinedDecision())
                 .when(manualReviewCommand())
-                .expectException(UnderwritingStatusException.class);
+                .expectException(UnderwritingStatusException.class)
+                .expectNoEvents();
     }
 
     @Test
@@ -120,7 +122,7 @@ class UnderwritingTerminalStateGuardTest {
         return new UnderwritingCreatedEvent(UNDERWRITING_ID, PolicyId.of("POL-001"), CustomerId.of("CUS-001"),
                 UnderwritingAmount.of(BigDecimal.ZERO, CurrencyEnum.CNY),
                 UnderwritingEnum.UnderwritingType.NEW_BUSINESS, LocalDateTime.now(), OPERATOR, TENANT_ID, "PRD-001",
-                "UW202401001");
+                "UW202401001", null);
     }
 
     private UnderwritingInputSubmittedEvent inputSubmittedEvent() {
@@ -147,12 +149,13 @@ class UnderwritingTerminalStateGuardTest {
             UnderwritingEnum.ConclusionType conclusion, UnderwritingEnum.UnderwritingStatus newStatus, String reason) {
         return new UnderwritingDecidedEvent(UNDERWRITING_ID, PolicyId.of("POL-001"), riskLevel, conclusion,
                 UnderwritingEnum.AuditType.AUTOMATIC, UnderwritingEnum.UnderwritingStatus.PENDING, newStatus, 55,
-                null, LocalDateTime.now(), OPERATOR, TENANT_ID, reason, ProductConfigSource.CONFIGURED);
+                null, LocalDateTime.now(), OPERATOR, TENANT_ID, reason, ProductConfigSource.CONFIGURED, null);
     }
 
     private UnderwriteCommand underwriteCommand() {
+        // 阈值留 null：本类只验证终态守卫，走聚合根兜底默认阈值分支即可
         return new UnderwriteCommand(UNDERWRITING_ID, UnderwritingAmount.of(BigDecimal.TEN, CurrencyEnum.CNY),
-                "重新自动核保", OPERATOR, TENANT_ID);
+                "重新自动核保", OPERATOR, TENANT_ID, null);
     }
 
     private DecideUnderwritingCommand decideCommand() {

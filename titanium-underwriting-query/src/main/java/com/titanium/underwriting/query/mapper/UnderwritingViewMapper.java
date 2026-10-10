@@ -22,6 +22,7 @@ import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.query.view.UnderwritingView;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.ExtraPremium;
+import com.titanium.underwriting.valueobject.InsuranceId;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
@@ -53,6 +54,7 @@ public interface UnderwritingViewMapper {
      */
     @Mapping(target = "underwritingId", source = "underwritingId", qualifiedByName = "underwritingIdValue")
     @Mapping(target = "policyId", source = "policyId", qualifiedByName = "policyIdValue")
+    @Mapping(target = "insuranceId", source = "insuranceId", qualifiedByName = "insuranceIdValue")
     @Mapping(target = "customerId", source = "customerId", qualifiedByName = "customerIdValue")
     @Mapping(target = "amount", source = "amount", qualifiedByName = "underwritingAmountValue")
     @Mapping(target = "status", constant = "PENDING")
@@ -85,6 +87,7 @@ public interface UnderwritingViewMapper {
      */
     @Mapping(target = "underwritingId", ignore = true)
     @Mapping(target = "policyId", ignore = true)
+    @Mapping(target = "insuranceId", ignore = true)
     @Mapping(target = "status", source = "newStatus")
     @Mapping(target = "updatedBy", source = "decidedBy")
     @Mapping(target = "underwritingCompletedTime", source = "decidedAt")
@@ -148,6 +151,12 @@ public interface UnderwritingViewMapper {
     @Named("policyIdValue")
     default String policyIdValue(PolicyId policyId) {
         return policyId != null ? policyId.value() : null;
+    }
+
+    /** 投保单号值对象 → 标识串（空安全；旧事件无该字段时为 null，由 IGNORE 保持既有值） */
+    @Named("insuranceIdValue")
+    default String insuranceIdValue(InsuranceId insuranceId) {
+        return insuranceId != null ? insuranceId.value() : null;
     }
 
     /** 客户标识值对象 → 标识串（空安全） */

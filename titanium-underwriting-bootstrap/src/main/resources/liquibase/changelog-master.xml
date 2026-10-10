@@ -14,4 +14,6 @@
     <include file="classpath:liquibase/ddl/underwriting_view_202609161200_weisun_ddl.sql"/>
     <include file="classpath:liquibase/dml/underwriting_backfill_202609161200_weisun_dml.sql"/>
     <include file="classpath:liquibase/ddl/underwriting_shedlock_202609231800_weisun_ddl.sql"/>
+    <include file="classpath:liquibase/ddl/underwriting_view_202609271200_weisun_ddl.sql"/>
+    <include file="classpath:liquibase/dml/underwriting_insurance_id_backfill_202609271200_weisun_dml.sql"/>
 </databaseChangeLog>

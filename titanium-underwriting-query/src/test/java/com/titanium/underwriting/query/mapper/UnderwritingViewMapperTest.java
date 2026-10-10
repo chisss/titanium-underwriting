@@ -123,7 +123,7 @@ class UnderwritingViewMapperTest {
                 UnderwritingEnum.AuditType.AUTOMATIC, UnderwritingEnum.UnderwritingStatus.PENDING,
                 UnderwritingEnum.UnderwritingStatus.STANDARD, 0, null,
                 LocalDateTime.parse("2026-09-16T11:22:33"), "uw04", "TENANT-001", null,
-                ProductConfigSource.NOT_CONFIGURED));
+                ProductConfigSource.NOT_CONFIGURED, null));
 
         assertEquals(LocalDateTime.parse("2026-09-16T11:22:33"), view.getUnderwritingCompletedTime(),
                 "决策时间必须落读模型，否则「核保完成时间」永久为空");
