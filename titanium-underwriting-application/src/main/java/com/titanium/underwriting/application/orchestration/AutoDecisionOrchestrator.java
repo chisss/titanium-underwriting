@@ -224,15 +224,20 @@ public class AutoDecisionOrchestrator {
     }
 
     /**
-     * 提交被保人粗粒度风险要素
+     * 提交被保人粗粒度风险要素与健康告知
      * <p>
      * 🔴 <b>要素全空时仍提交空容器</b>：不提交会让聚合的 {@code underwritingInput} 保持 null，
      * 而决策处理器直接取 {@code this.underwritingInput.aggregateRiskScore()}——四步路径正是靠
      * 「总是先提交输入」规避该空指针。此处保持同一顺序契约（粗粒度端点的承诺是「输入 + 决策」两步俱全）。
      * </p>
+     * <p>
+     * G12/g12-01 AC-01：健康告知随本命令一并提交；{@code null} 表示上游未提供（同风险要素「可全空」口径，
+     * 不构造空壳），由核保域按其可得要素评分。
+     * </p>
      */
     private void submitInput(String underwritingId, AutoDecideRequest request) {
-        UnderwritingInput input = UnderwritingInput.builder().insuredRiskFactors(request.riskFactors()).build();
+        UnderwritingInput input = UnderwritingInput.builder().insuredRiskFactors(request.riskFactors())
+                .healthDeclaration(request.healthDeclaration()).build();
         commandGateway.sendAndWait(new SubmitUnderwritingInputCommand(new UnderwritingId(underwritingId), input,
                 request.operatorId(), request.tenantId()));
     }

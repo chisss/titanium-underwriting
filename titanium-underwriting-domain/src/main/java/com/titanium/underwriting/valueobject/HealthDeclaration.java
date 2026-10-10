@@ -22,11 +22,12 @@ import com.titanium.underwriting.exception.UnderwritingValidationException;
  * @param smoking 是否吸烟
  * @param heightCm 身高（厘米）
  * @param weightKg 体重（千克）
+ * @param answers 自定义告知项答案清单（G12/g12-02；无则空列表）
  * @author wei.sun
  * @since 2026/6/23
  */
 public record HealthDeclaration(List<String> medicalHistory, List<String> familyHistory, boolean smoking,
-                                BigDecimal heightCm, BigDecimal weightKg)
+                                BigDecimal heightCm, BigDecimal weightKg, List<HealthDeclarationAnswer> answers)
         implements
             Serializable {
 
@@ -35,22 +36,29 @@ public record HealthDeclaration(List<String> medicalHistory, List<String> family
      */
     private static final String VO_NAME = "HealthDeclaration";
 
-    public HealthDeclaration(List<String> medicalHistory, List<String> familyHistory, boolean smoking,
-                             BigDecimal heightCm, BigDecimal weightKg) {
+    public HealthDeclaration {
         if (heightCm == null || heightCm.compareTo(BigDecimal.ZERO) <= 0) {
             throw new UnderwritingValidationException(UnderwritingErrorCode.HEIGHT_POSITIVE, VO_NAME, "heightCm");
         }
         if (weightKg == null || weightKg.compareTo(BigDecimal.ZERO) <= 0) {
             throw new UnderwritingValidationException(UnderwritingErrorCode.WEIGHT_POSITIVE, VO_NAME, "weightKg");
         }
-        // 防御性拷贝，保证值对象不可变
-        this.medicalHistory = medicalHistory == null ? Collections.emptyList()
+        // 防御性拷贝，保证值对象不可变（紧凑构造器改形参，末尾由编译器赋值字段）
+        medicalHistory = medicalHistory == null ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(medicalHistory));
-        this.familyHistory = familyHistory == null ? Collections.emptyList()
+        familyHistory = familyHistory == null ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(familyHistory));
-        this.smoking = smoking;
-        this.heightCm = heightCm;
-        this.weightKg = weightKg;
+        answers = answers == null ? Collections.emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(answers));
+    }
+
+    /**
+     * 兼容旧版调用方的构造器（无自定义告知项答案，G12/g12-02）。
+     * <p>答案清单按空列表处理——「未提供告知项答案」与「提供了零项」在评估语义上同形。</p>
+     */
+    public HealthDeclaration(List<String> medicalHistory, List<String> familyHistory, boolean smoking,
+                             BigDecimal heightCm, BigDecimal weightKg) {
+        this(medicalHistory, familyHistory, smoking, heightCm, weightKg, null);
     }
 
     /**

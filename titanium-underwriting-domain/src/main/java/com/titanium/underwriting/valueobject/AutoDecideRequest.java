@@ -15,6 +15,12 @@ import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
  * {@code riskFactors} 为粗粒度风险要素容器（年龄/性别/职业类别/BMI，四项可全空——由
  * {@link InsuredRiskFactors#hasAny()} 判定，业务上允许「无输入」，此时决策回退金额阈值规则）。
  * </p>
+ * <p>
+ * <b>G12/g12-01 AC-01 新增健康告知</b>：{@code healthDeclaration} 由边界层（{@code UnderwritingWebAssembler}）
+ * 从契约入参翻译；<b>整块为 null 表示上游未提供</b>——与 {@code riskFactors} 的「可全空」口径一致，
+ * 未提供时决策按无告知处理，<b>绝不代填</b>（禁止构造「不吸烟/默认身高体重」的告知块）。
+ * 契约若声明了告知块但必答项缺失，翻译层即显式拒绝，不会走到本值对象。
+ * </p>
  *
  * @param insuranceId      投保单号（幂等键，必填）
  * @param customerId       客户ID（对应上游投保人 holderId）
@@ -24,10 +30,12 @@ import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
  * @param riskFactors      被保人粗粒度风险要素（可为空表示未提供）
  * @param operatorId       操作人（由出单链路以系统主体上报，不得回落为投保人）
  * @param tenantId         租户ID
+ * @param healthDeclaration 健康告知（可为空表示未提供）
  * @author wei.sun
  * @since 2026/9/27
  */
 public record AutoDecideRequest(InsuranceId insuranceId, CustomerId customerId, UnderwritingAmount amount,
                                 UnderwritingEnum.UnderwritingType underwritingType, String productCode,
-                                InsuredRiskFactors riskFactors, String operatorId, String tenantId) {
+                                InsuredRiskFactors riskFactors, String operatorId, String tenantId,
+                                HealthDeclaration healthDeclaration) {
 }

@@ -1,11 +1,16 @@
 package com.titanium.underwriting.web.assembler;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
 import com.titanium.metadata.enums.CurrencyEnum;
+import com.titanium.metadata.enums.underwriting.HealthDeclarationQuestion;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
+import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.api.request.underwriting.AutoDecideUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.DecideUnderwritingApiRequest;
@@ -18,10 +23,12 @@ import com.titanium.underwriting.command.ManualReviewCommand;
 import com.titanium.underwriting.command.SubmitUnderwritingInputCommand;
 import com.titanium.underwriting.command.UnderwriteCommand;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
+import com.titanium.underwriting.exception.UnderwritingValidationException;
 import com.titanium.underwriting.valueobject.AutoDecideRequest;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.FinancialAssessment;
 import com.titanium.underwriting.valueobject.HealthDeclaration;
+import com.titanium.underwriting.valueobject.HealthDeclarationAnswer;
 import com.titanium.underwriting.valueobject.InsuranceId;
 import com.titanium.underwriting.valueobject.InsuredRiskFactors;
 import com.titanium.underwriting.valueobject.OccupationInfo;
@@ -37,6 +44,8 @@ import com.titanium.underwriting.web.dto.ManualReviewDTO;
 import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
 import com.titanium.underwriting.web.dto.UnderwriteDTO;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * 核保 Web 层命令装配器（业务决策型组装）
  * <p>
@@ -47,6 +56,7 @@ import com.titanium.underwriting.web.dto.UnderwriteDTO;
  * 装配器；{@code UnderwritingWebMapper} 只保留纯声明式的同名字段映射。
  * </p>
  */
+@Slf4j
 @Component
 public class UnderwritingWebAssembler {
 
@@ -220,6 +230,10 @@ public class UnderwritingWebAssembler {
      * 出单链路只提供职业类别与 BMI 时整块被丢弃。本契约把四项要素<b>提到顶层</b>，
      * 不再借道明细块（G02/AC-01 的成因对策）。
      * </p>
+     * <p>
+     * G12/g12-01 AC-01：健康告知整块可空（{@code null} 表示上游未提供，不构造空壳）；块存在而必答项
+     * 缺失由 {@link #toAutoDecideHealth} 显式拒绝。
+     * </p>
      *
      * @param request  自动决策请求（api 契约）
      * @param tenantId 租户ID（请求头）
@@ -232,7 +246,36 @@ public class UnderwritingWebAssembler {
                 CustomerId.of(request.getCustomerId()),
                 UnderwritingAmount.of(resolveAmount(request.getAmount()), resolveCurrency(request.getCurrency())),
                 resolveUnderwritingType(request.getUnderwritingType()), request.getProductCode(),
-                factors.hasAny() ? factors : null, resolveOperatorId(request.getOperatorId()), tenantId);
+                factors.hasAny() ? factors : null, resolveOperatorId(request.getOperatorId()), tenantId,
+                toAutoDecideHealth(request.getHealthDeclaration()));
+    }
+
+    /**
+     * 自动决策契约 → 健康告知值对象（G12/g12-01 AC-01）
+     * <p>
+     * 整块为 {@code null} 表示上游未提供告知（口径同风险要素「四项可全空」）——返回 {@code null}，
+     * 不构造空壳。
+     * </p>
+     * <p>
+     * 🔴 <b>块存在即须给出吸烟答案</b>：契约侧吸烟用包装类型以表达三态，{@code null} 即
+     * 「声明了告知块却缺失必答项」，属调用方数据残缺，此处显式拒绝（{@code FIELD_REQUIRED}），
+     * <b>不得</b>静默按「不吸烟」处理（那会把「没告知」变成「低风险告知」）；
+     * 身高/体重的正数校验由 {@link HealthDeclaration} 紧凑构造器承担（非法即拒收）。
+     * </p>
+     *
+     * @param input 自动决策契约的健康告知块（可为 null）
+     * @return 健康告知值对象；未提供时返回 null
+     */
+    private HealthDeclaration toAutoDecideHealth(AutoDecideUnderwritingRequest.HealthDeclarationInput input) {
+        if (input == null) {
+            return null;
+        }
+        if (input.getSmoking() == null) {
+            throw new UnderwritingValidationException(UnderwritingErrorCode.FIELD_REQUIRED,
+                    "AutoDecideUnderwritingRequest", "healthDeclaration.smoking");
+        }
+        return new HealthDeclaration(input.getMedicalHistory(), input.getFamilyHistory(), input.getSmoking(),
+                input.getHeightCm(), input.getWeightKg(), toHealthAnswers(input.getAnswers()));
     }
 
     // ========== 类型转换与归一化 ==========
@@ -358,7 +401,7 @@ public class UnderwritingWebAssembler {
             return null;
         }
         return new HealthDeclaration(input.getMedicalHistory(), input.getFamilyHistory(), input.isSmoking(),
-                input.getHeightCm(), input.getWeightKg());
+                input.getHeightCm(), input.getWeightKg(), toHealthAnswers(input.getAnswers()));
     }
 
     /** 体检报告输入装配（空块跳过） */
@@ -395,7 +438,34 @@ public class UnderwritingWebAssembler {
             return null;
         }
         return new HealthDeclaration(input.getMedicalHistory(), input.getFamilyHistory(), input.isSmoking(),
-                input.getHeightCm(), input.getWeightKg());
+                input.getHeightCm(), input.getWeightKg(), toHealthAnswers(input.getAnswers()));
+    }
+
+    /**
+     * 契约告知项答案 → 领域值对象清单（G12/g12-02）
+     * <p>
+     * 键为问题编码常量名，经 {@link HealthDeclarationQuestion#fromCode} 解析为元数据枚举；
+     * <b>未识别编码跳过并留痕</b>——对端新增编码的滚动升级窗口，读取路径宽容
+     * （m8-1103 判据，同 policy 域 {@code ProductServiceAdapter} 处置）。
+     * </p>
+     *
+     * @param answers 契约答案映射（键=问题编码常量名，值=true/false；可为 null）
+     * @return 答案清单；契约未提供时为空列表
+     */
+    private List<HealthDeclarationAnswer> toHealthAnswers(Map<String, String> answers) {
+        if (answers == null || answers.isEmpty()) {
+            return List.of();
+        }
+        List<HealthDeclarationAnswer> parsed = new ArrayList<>();
+        for (Map.Entry<String, String> entry : answers.entrySet()) {
+            HealthDeclarationQuestion question = HealthDeclarationQuestion.fromCode(entry.getKey());
+            if (question == null) {
+                log.warn("告知项问题编码无法识别，跳过该项: code={}", entry.getKey());
+                continue;
+            }
+            parsed.add(new HealthDeclarationAnswer(question, entry.getValue()));
+        }
+        return List.copyOf(parsed);
     }
 
     /** api 体检 → 值对象 */

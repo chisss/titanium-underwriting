@@ -2,6 +2,7 @@ package com.titanium.underwriting.web.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -49,6 +50,8 @@ public class SubmitUnderwritingInputDTO {
         private boolean      smoking;
         private BigDecimal   heightCm;
         private BigDecimal   weightKg;
+        /** 自定义告知项答案（键=问题编码常量名，值=true/false；G12/g12-02） */
+        private Map<String, String> answers;
     }
 
     /** 体检报告输入 */

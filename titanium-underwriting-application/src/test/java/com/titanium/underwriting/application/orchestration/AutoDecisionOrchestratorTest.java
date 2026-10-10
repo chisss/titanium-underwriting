@@ -43,6 +43,7 @@ import com.titanium.underwriting.valueobject.AutoDecideRequest;
 import com.titanium.underwriting.valueobject.AutoDecideResult;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.ExtraPremium;
+import com.titanium.underwriting.valueobject.HealthDeclaration;
 import com.titanium.underwriting.valueobject.InsuranceId;
 import com.titanium.underwriting.valueobject.InsuredRiskFactors;
 import com.titanium.underwriting.valueobject.PolicyId;
@@ -281,6 +282,36 @@ class AutoDecisionOrchestratorTest {
         assertEquals(factors, inputCaptor.getValue().underwritingInput().insuredRiskFactors());
     }
 
+    @Test
+    void passesProvidedHealthDeclarationIntoSubmittedInput() {
+        givenNoExisting();
+        when(underwritingNoGenerator.generateUnderwritingNo(TENANT_ID)).thenReturn(CASE_NO);
+        when(underwritingDecisionOrchestrator.decide(any(), any())).thenReturn(decidedEvent());
+        HealthDeclaration declaration = new HealthDeclaration(List.of("高血压"), List.of("糖尿病家族史"), true,
+                new BigDecimal("175"), new BigDecimal("80"));
+
+        orchestrator.autoDecide(request(null, declaration));
+
+        // G12/g12-01 AC-01：告知要素必须随输入提交抵达聚合（此前该块在链路中途丢失，
+        // 核保域只能按「无告知」评分——本次改造禁止的正是这种静默降级）
+        verify(commandGateway).sendAndWait(inputCaptor.capture());
+        assertEquals(declaration, inputCaptor.getValue().underwritingInput().healthDeclaration());
+    }
+
+    @Test
+    void leavesHealthDeclarationNullWhenUpstreamDidNotProvideIt() {
+        givenNoExisting();
+        when(underwritingNoGenerator.generateUnderwritingNo(TENANT_ID)).thenReturn(CASE_NO);
+        when(underwritingDecisionOrchestrator.decide(any(), any())).thenReturn(decidedEvent());
+
+        orchestrator.autoDecide(request(null));
+
+        // 「未提供」与「提供了低风险告知」必须在核保入参层可区分：未提供时保持 null，
+        // 编排器不得代填默认告知块（代填会把「没告知」变成「低风险告知」）
+        verify(commandGateway).sendAndWait(inputCaptor.capture());
+        assertNull(inputCaptor.getValue().underwritingInput().healthDeclaration());
+    }
+
     // ------------------------------------------------------------------ 出参装配（事件通道）
 
     @Test
@@ -361,8 +392,13 @@ class AutoDecisionOrchestratorTest {
     }
 
     private AutoDecideRequest request(InsuredRiskFactors riskFactors) {
+        return request(riskFactors, null);
+    }
+
+    private AutoDecideRequest request(InsuredRiskFactors riskFactors, HealthDeclaration healthDeclaration) {
         return new AutoDecideRequest(InsuranceId.of(INSURANCE_ID), CustomerId.of("CUST-001"),
                 UnderwritingAmount.of(BigDecimal.valueOf(500_000), CurrencyEnum.CNY),
-                UnderwritingEnum.UnderwritingType.NEW_BUSINESS, PRODUCT_CODE, riskFactors, OPERATOR_ID, TENANT_ID);
+                UnderwritingEnum.UnderwritingType.NEW_BUSINESS, PRODUCT_CODE, riskFactors, OPERATOR_ID, TENANT_ID,
+                healthDeclaration);
     }
 }

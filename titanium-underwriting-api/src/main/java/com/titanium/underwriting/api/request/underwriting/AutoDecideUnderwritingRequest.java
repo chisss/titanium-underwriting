@@ -1,6 +1,8 @@
 package com.titanium.underwriting.api.request.underwriting;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 
 import com.titanium.metadata.enums.customer.CustomerEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
@@ -56,4 +58,42 @@ public class AutoDecideUnderwritingRequest {
 
     @Schema(description = "被保人体重指数 BMI")
     private BigDecimal bmi;
+
+    @Schema(description = "健康告知（未提供时不写入，禁止以默认值代填）")
+    private HealthDeclarationInput healthDeclaration;
+
+    /**
+     * 健康告知（嵌套对象，G12/g12-01 AC-01）
+     * <p>
+     * 由上游（policy 域出单 Saga 从投保险种段的段级 {@code extendData} 提取）随自动决策请求透传。
+     * 字段形态与本域既有提交入参 {@code SubmitUnderwritingInputApiRequest.HealthDeclarationInput}
+     * 逐项对齐（病史两项为字符串列表），使一次成单的粗粒度契约同样能表达告知要素。
+     * </p>
+     * <p>
+     * 🔴 <b>吸烟项用包装类型 {@code Boolean}</b>：整块字段为 null 表示「未提供」；而吸烟是核保域
+     * {@code HealthDeclaration} 的必答项——块存在即须给出该答案，缺失（null）由服务端翻译层显式拒绝
+     * （{@code FIELD_REQUIRED}），<b>不得</b>静默按「不吸烟」处理（那会把「没告知」变成「低风险告知」）。
+     * </p>
+     */
+    @Data
+    public static class HealthDeclarationInput {
+
+        @Schema(description = "既往病史（无则空数组）")
+        private List<String> medicalHistory;
+
+        @Schema(description = "家族遗传病史（无则空数组）")
+        private List<String> familyHistory;
+
+        @Schema(description = "是否吸烟（必答，缺失即拒绝）")
+        private Boolean      smoking;
+
+        @Schema(description = "身高（厘米，必答且为正）")
+        private BigDecimal   heightCm;
+
+        @Schema(description = "体重（千克，必答且为正）")
+        private BigDecimal   weightKg;
+
+        @Schema(description = "自定义告知项答案（键=问题编码常量名，值=true/false；可空=上游未提供）")
+        private Map<String, String> answers;
+    }
 }

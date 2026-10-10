@@ -8,12 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.metadata.enums.customer.CustomerEnum.CustomerGender;
+import com.titanium.metadata.enums.underwriting.HealthDeclarationQuestion;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.api.request.underwriting.AutoDecideUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
@@ -22,6 +26,8 @@ import com.titanium.underwriting.command.CreateUnderwritingCommand;
 import com.titanium.underwriting.common.enums.VehicleUsageType;
 import com.titanium.underwriting.exception.UnderwritingValidationException;
 import com.titanium.underwriting.valueobject.AutoDecideRequest;
+import com.titanium.underwriting.valueobject.HealthDeclaration;
+import com.titanium.underwriting.valueobject.HealthDeclarationAnswer;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
 import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
 
@@ -258,5 +264,127 @@ class UnderwritingWebAssemblerTest {
         assertNull(assembled.riskFactors().gender());
         assertNull(assembled.riskFactors().occupationCategory());
         assertNull(assembled.riskFactors().bmi());
+    }
+
+    @Test
+    @DisplayName("G12/g12-01 AC-01 自动决策装配：健康告知五项整体透传为值对象")
+    void shouldTransmitHealthDeclarationOntoAutoDecideRequest() {
+        AutoDecideUnderwritingRequest request = new AutoDecideUnderwritingRequest();
+        request.setInsuranceId("INS-001");
+        request.setCustomerId("CUST-001");
+        AutoDecideUnderwritingRequest.HealthDeclarationInput health =
+                new AutoDecideUnderwritingRequest.HealthDeclarationInput();
+        health.setMedicalHistory(List.of("高血压"));
+        health.setFamilyHistory(List.of("糖尿病家族史"));
+        health.setSmoking(true);
+        health.setHeightCm(new BigDecimal("175"));
+        health.setWeightKg(new BigDecimal("80"));
+        request.setHealthDeclaration(health);
+
+        AutoDecideRequest assembled = assembler.toAutoDecideRequest(request, "TENANT-001");
+
+        HealthDeclaration declaration = assembled.healthDeclaration();
+        assertNotNull(declaration);
+        assertEquals(List.of("高血压"), declaration.medicalHistory());
+        assertEquals(List.of("糖尿病家族史"), declaration.familyHistory());
+        assertEquals(true, declaration.smoking());
+        assertEquals(new BigDecimal("175"), declaration.heightCm());
+        assertEquals(new BigDecimal("80"), declaration.weightKg());
+    }
+
+    @Test
+    @DisplayName("G12/g12-01 AC-01 自动决策装配：未提供告知块时不构造空壳（null 与低风险告知可区分）")
+    void shouldKeepHealthDeclarationNullWhenBlockAbsent() {
+        AutoDecideUnderwritingRequest request = new AutoDecideUnderwritingRequest();
+        request.setInsuranceId("INS-001");
+        request.setCustomerId("CUST-001");
+
+        AutoDecideRequest assembled = assembler.toAutoDecideRequest(request, "TENANT-001");
+
+        // 未提供 ⇒ null：构造空壳会把「没告知」读成「告知了无病史、不吸烟」
+        assertNull(assembled.healthDeclaration());
+    }
+
+    @Test
+    @DisplayName("G12/g12-01 AC-01 自动决策装配：声明了告知块却缺吸烟答案 → 显式拒绝而非按不吸烟处理")
+    void shouldRejectDeclarationBlockMissingSmokingAnswer() {
+        AutoDecideUnderwritingRequest request = new AutoDecideUnderwritingRequest();
+        request.setInsuranceId("INS-001");
+        request.setCustomerId("CUST-001");
+        AutoDecideUnderwritingRequest.HealthDeclarationInput health =
+                new AutoDecideUnderwritingRequest.HealthDeclarationInput();
+        health.setHeightCm(new BigDecimal("175"));
+        health.setWeightKg(new BigDecimal("80"));
+        request.setHealthDeclaration(health);
+
+        // 契约侧吸烟用包装类型表达三态，null 即「块存在但必答项缺失」——调用方数据残缺必须显式失败，
+        // 静默按 false（不吸烟）处理会反转风险方向
+        assertThrows(UnderwritingValidationException.class,
+                () -> assembler.toAutoDecideRequest(request, "TENANT-001"));
+    }
+
+    @Test
+    @DisplayName("G12/g12-02 自动决策装配：自定义告知项答案按编码翻译为值对象，未知编码跳过")
+    void shouldTranslateConfiguredHealthAnswersAndSkipUnknownCodes() {
+        AutoDecideUnderwritingRequest request = new AutoDecideUnderwritingRequest();
+        request.setInsuranceId("INS-001");
+        request.setCustomerId("CUST-001");
+        AutoDecideUnderwritingRequest.HealthDeclarationInput health =
+                new AutoDecideUnderwritingRequest.HealthDeclarationInput();
+        health.setHeightCm(new BigDecimal("175"));
+        health.setWeightKg(new BigDecimal("80"));
+        health.setSmoking(false);
+        Map<String, String> answers = new LinkedHashMap<>();
+        answers.put("HOSPITALIZATION_TWO_YEARS", "true");
+        answers.put("SURGERY_HISTORY", "false");
+        answers.put("UNKNOWN_QUESTION", "true");
+        health.setAnswers(answers);
+        request.setHealthDeclaration(health);
+
+        AutoDecideRequest assembled = assembler.toAutoDecideRequest(request, "TENANT-001");
+
+        // 未知编码（对端新增项）在滚动升级窗口内跳过而非整链失败；已知项按原顺序翻译
+        List<HealthDeclarationAnswer> parsed = assembled.healthDeclaration().answers();
+        assertEquals(2, parsed.size());
+        assertEquals(HealthDeclarationQuestion.HOSPITALIZATION_TWO_YEARS, parsed.get(0).question());
+        assertEquals("true", parsed.get(0).answer());
+        assertEquals(HealthDeclarationQuestion.SURGERY_HISTORY, parsed.get(1).question());
+        assertEquals("false", parsed.get(1).answer());
+    }
+
+    @Test
+    @DisplayName("G12/g12-02 自动决策装配：未提供答案清单时为空列表（不改变既有五要素透传）")
+    void shouldKeepConfiguredAnswersEmptyWhenAbsent() {
+        AutoDecideUnderwritingRequest request = new AutoDecideUnderwritingRequest();
+        request.setInsuranceId("INS-001");
+        request.setCustomerId("CUST-001");
+        AutoDecideUnderwritingRequest.HealthDeclarationInput health =
+                new AutoDecideUnderwritingRequest.HealthDeclarationInput();
+        health.setHeightCm(new BigDecimal("175"));
+        health.setWeightKg(new BigDecimal("80"));
+        health.setSmoking(false);
+        request.setHealthDeclaration(health);
+
+        AutoDecideRequest assembled = assembler.toAutoDecideRequest(request, "TENANT-001");
+
+        assertEquals(List.of(), assembled.healthDeclaration().answers());
+    }
+
+    @Test
+    @DisplayName("G12/g12-02 提交输入装配：web DTO 路径同法翻译答案清单")
+    void shouldTranslateConfiguredAnswersFromDtoPath() {
+        SubmitUnderwritingInputDTO request = new SubmitUnderwritingInputDTO();
+        SubmitUnderwritingInputDTO.HealthDeclarationInput health =
+                new SubmitUnderwritingInputDTO.HealthDeclarationInput();
+        health.setHeightCm(new BigDecimal("175"));
+        health.setWeightKg(new BigDecimal("70"));
+        health.setAnswers(Map.of("DRUG_ALLERGY", "true"));
+        request.setHealthDeclaration(health);
+
+        UnderwritingInput input = assembler.toInput(request);
+
+        assertEquals(1, input.healthDeclaration().answers().size());
+        assertEquals(HealthDeclarationQuestion.DRUG_ALLERGY, input.healthDeclaration().answers().get(0).question());
+        assertEquals("true", input.healthDeclaration().answers().get(0).answer());
     }
 }
