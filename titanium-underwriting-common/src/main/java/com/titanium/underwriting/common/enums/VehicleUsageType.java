@@ -1,6 +1,7 @@
 package com.titanium.underwriting.common.enums;
 
 import com.titanium.metadata.enums.BaseEnum;
+import com.titanium.metadata.enums.Reserved;
 
 import lombok.Getter;
 
@@ -19,8 +20,10 @@ import lombok.Getter;
 public enum VehicleUsageType implements BaseEnum {
 
     /** 家庭自用车 */
+    @Reserved("2026-10-14 g16-05 零引用登记（枚举级消费）：存在 values/valueOf/自定方法/:: 调用，常量名零出现；接入时摘标注+删清单行。见 docs/技术文档/枚举零引用清单.md")
     FAMILY(1, "FAMILY", "家庭自用", "家庭自用车，非经营性使用"),
     /** 非营运车（单位/公务自用等非盈利用途） */
+    @Reserved("2026-10-14 g16-05 零引用登记（枚举级消费）：存在 values/valueOf/自定方法/:: 调用，常量名零出现；接入时摘标注+删清单行。见 docs/技术文档/枚举零引用清单.md")
     NON_OPERATING(2, "NON_OPERATING", "非营运", "单位或个人非盈利性使用"),
     /** 营运车（出租、客运、货运等盈利性使用，风险最高） */
     OPERATING(3, "OPERATING", "营运", "出租、客运、货运等盈利性使用");

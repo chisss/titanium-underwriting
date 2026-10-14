@@ -3,6 +3,7 @@ package com.titanium.underwriting.common.enums;
 import java.util.Locale;
 
 import com.titanium.metadata.enums.BaseEnum;
+import com.titanium.metadata.enums.Reserved;
 
 import lombok.Getter;
 
@@ -31,11 +32,14 @@ public enum MaintenanceRiskClassification implements BaseEnum {
     /** 条件承保类变更（前缀 {@code UW_CONDITIONAL}） */
     CONDITIONAL("UW_CONDITIONAL", MaintenanceRiskVerdict.CONDITIONAL, "CONDITIONAL", "条件承保"),
     /** 保额变更（精确匹配 {@code COVERAGE_AMOUNT_CHANGE}），按条件承保处置 */
+    @Reserved("2026-10-14 g16-05 零引用登记（枚举级消费）：存在 values/valueOf/自定方法/:: 调用，常量名零出现；接入时摘标注+删清单行。见 docs/技术文档/枚举零引用清单.md")
     COVERAGE_AMOUNT_CHANGE("COVERAGE_AMOUNT_CHANGE", MaintenanceRiskVerdict.CONDITIONAL, "COVERAGE_AMOUNT_CHANGE",
             "保额变更"),
     /** 自动接受类变更（前缀 {@code UW_AUTO_ACCEPT}） */
+    @Reserved("2026-10-14 g16-05 零引用登记（枚举级消费）：存在 values/valueOf/自定方法/:: 调用，常量名零出现；接入时摘标注+删清单行。见 docs/技术文档/枚举零引用清单.md")
     AUTO_ACCEPT("UW_AUTO_ACCEPT", MaintenanceRiskVerdict.ACCEPT, "AUTO_ACCEPT", "自动接受"),
     /** 未识别编码：保守转人工复核 */
+    @Reserved("2026-10-14 g16-05 零引用登记（枚举级消费）：存在 values/valueOf/自定方法/:: 调用，常量名零出现；接入时摘标注+删清单行。见 docs/技术文档/枚举零引用清单.md")
     UNCLASSIFIED(null, MaintenanceRiskVerdict.MANUAL_REVIEW, "UNCLASSIFIED", "未识别编码");
 
     /** 变更类型编码前缀（精确/前缀匹配规则见 {@link #of}） */

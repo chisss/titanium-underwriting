@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.titanium.metadata.enums.Reserved;
 import com.titanium.metadata.response.ApiResponse;
 import com.titanium.underwriting.api.request.underwriting.AutoDecideUnderwritingRequest;
 import com.titanium.underwriting.api.request.underwriting.CreateUnderwritingRequest;
@@ -47,6 +48,7 @@ public interface UnderwritingApi {
      * @return 统一信封（HTTP 201），{@code data} 为创建的核保DTO
      */
     @PostMapping
+    @Reserved("g16-04: 跨域零消费者（管理面经 web 层）；登记见 docs/技术文档/契约登记表.md")
     ResponseEntity<ApiResponse<UnderwritingResponse>> createUnderwriting(@RequestBody CreateUnderwritingRequest request);
 
     /**
@@ -77,6 +79,7 @@ public interface UnderwritingApi {
      * @return 统一信封，{@code data} 为核保DTO（未命中时为 {@code null}）
      */
     @GetMapping("/{underwritingId}")
+    @Reserved("g16-04: 跨域零消费者（管理面经 web 层）；登记见 docs/技术文档/契约登记表.md")
     ApiResponse<UnderwritingResponse> getUnderwritingById(@PathVariable String underwritingId);
 
     /**
@@ -86,6 +89,7 @@ public interface UnderwritingApi {
      * @return 统一信封，{@code data} 为核保DTO列表（无命中为空列表）
      */
     @GetMapping("/policy/{policyId}")
+    @Reserved("g16-04: 跨域零消费者（管理面经 web 层）；登记见 docs/技术文档/契约登记表.md")
     ApiResponse<List<UnderwritingResponse>> getUnderwritingByPolicyId(@PathVariable String policyId);
 
     /**
@@ -96,6 +100,7 @@ public interface UnderwritingApi {
      * @return 统一信封，{@code data} 为更新后的核保DTO
      */
     @PutMapping("/{underwritingId}/underwrite")
+    @Reserved("g16-04: 跨域零消费者（管理面经 web 层）；登记见 docs/技术文档/契约登记表.md")
     ApiResponse<UnderwritingResponse> underwrite(@PathVariable String underwritingId,
                                                @RequestBody UnderwriteRequest request);
 
@@ -107,6 +112,7 @@ public interface UnderwritingApi {
      * @return 统一信封，{@code data} 为更新后的核保DTO
      */
     @PutMapping("/{underwritingId}/inputs")
+    @Reserved("g16-04: 跨域零消费者（管理面经 web 层）；登记见 docs/技术文档/契约登记表.md")
     ApiResponse<UnderwritingResponse> submitInput(@PathVariable String underwritingId,
                                                 @RequestBody SubmitUnderwritingInputApiRequest request);
 
@@ -118,6 +124,7 @@ public interface UnderwritingApi {
      * @return 统一信封，{@code data} 为决策后的核保DTO
      */
     @PutMapping("/{underwritingId}/decide")
+    @Reserved("g16-04: 跨域零消费者（管理面经 web 层）；登记见 docs/技术文档/契约登记表.md")
     ApiResponse<UnderwritingResponse> decide(@PathVariable String underwritingId,
                                            @RequestBody DecideUnderwritingApiRequest request);
 
@@ -133,6 +140,7 @@ public interface UnderwritingApi {
      * @return 统一信封，{@code data} 为更新后的核保DTO
      */
     @PutMapping("/{underwritingId}/manual-review")
+    @Reserved("g16-04: 跨域零消费者（管理面经 web 层）；登记见 docs/技术文档/契约登记表.md")
     ApiResponse<UnderwritingResponse> manualReview(@PathVariable String underwritingId,
                                                    @RequestBody ManualReviewRequest request);
 
@@ -148,6 +156,7 @@ public interface UnderwritingApi {
      * @return 统一信封，{@code data} 为当前页核保DTO列表
      */
     @GetMapping("/status/{status}")
+    @Reserved("g16-04: 跨域零消费者（管理面经 web 层）；登记见 docs/技术文档/契约登记表.md")
     ApiResponse<List<UnderwritingResponse>> getUnderwritingsByStatus(@PathVariable String status,
                                                                    @RequestParam(defaultValue = "0") int page,
                                                                    @RequestParam(defaultValue = "20") int size);
@@ -163,6 +172,7 @@ public interface UnderwritingApi {
      * @return 统一信封，{@code data} 为当前页核保DTO列表
      */
     @GetMapping("/all")
+    @Reserved("g16-04: 跨域零消费者（管理面经 web 层）；登记见 docs/技术文档/契约登记表.md")
     ApiResponse<List<UnderwritingResponse>> getAllUnderwritings(@RequestParam(defaultValue = "0") int page,
                                                              @RequestParam(defaultValue = "20") int size);
 }
