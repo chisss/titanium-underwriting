@@ -37,8 +37,8 @@ class InsuredRiskFactorsTest {
         if (!input.hasAnyInput()) {
             throw new AssertionError("已提供粗粒度要素，hasAnyInput 应为 true");
         }
-        if (input.assessRiskLevel() == UnderwritingEnum.RiskLevel.STANDARD) {
-            throw new AssertionError("70 分不应判为标准体，实际=" + input.assessRiskLevel());
+        if (input.assessRiskLevel(UnderwritingParameter.DEFAULT) == UnderwritingEnum.RiskLevel.STANDARD) {
+            throw new AssertionError("70 分不应判为标准体，实际=" + input.assessRiskLevel(UnderwritingParameter.DEFAULT));
         }
     }
 
@@ -131,9 +131,9 @@ class InsuredRiskFactorsTest {
         InsuredRiskFactors factors = new InsuredRiskFactors(null, null, 2, null);
         UnderwritingInput input = UnderwritingInput.builder().occupationInfo(occupation).insuredRiskFactors(factors)
                 .build();
-        if (input.aggregateRiskScore() != 15) {
+        if (input.aggregateRiskScore(UnderwritingParameter.DEFAULT) != 15) {
             throw new AssertionError("同一职业类别在两处出现应取最大值 15 而非求和 30，实际="
-                    + input.aggregateRiskScore());
+                    + input.aggregateRiskScore(UnderwritingParameter.DEFAULT));
         }
     }
 

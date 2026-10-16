@@ -6,6 +6,7 @@ import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.valueobject.RuleUnderwritingDecision;
 import com.titanium.underwriting.valueobject.UnderwritingId;
+import com.titanium.underwriting.valueobject.UnderwritingParameter;
 
 /**
  * 核保决策命令
@@ -30,6 +31,12 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * 快照带来，聚合根随决策事件一并落盘，使「本次决策是否有产品策略依据」可被事后审计。为 {@code null}
  * 表示本命令未经产品配置编排（如直连命令的测试路径），同样按「无依据」对待。
  * </p>
+ * <p>
+ * {@code riskParameter} 来自评分数值外部化（DSN-09 / m25-11）：由 application 层决策编排器经
+ * 配置 {@code titanium.underwriting.risk-parameter}（支持租户级覆盖）解析后充实；web/api 侧
+ * 一律置 {@code null}，{@code null} 时聚合根回退 {@link UnderwritingParameter#DEFAULT}
+ * （与改造前硬编码行为一致）。
+ * </p>
  *
  * @author wei.sun
  * @since 2026/6/23
@@ -41,6 +48,7 @@ public record DecideUnderwritingCommand(
         String tenantId,
         Boolean surchargeAcceptable,
         RuleUnderwritingDecision ruleDecision,
-        ProductConfigSource configSource
+        ProductConfigSource configSource,
+        UnderwritingParameter riskParameter
 ) {
 }

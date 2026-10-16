@@ -22,6 +22,7 @@ import com.titanium.underwriting.valueobject.OccupationInfo;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
+import com.titanium.underwriting.valueobject.UnderwritingParameter;
 
 /**
  * 核保读模型投影映射器测试（m7-1001 新增的两条投影链路）。
@@ -47,7 +48,8 @@ class UnderwritingViewMapperTest {
                 LocalDateTime.parse("2026-09-14T10:00:00"), "uw01", "TENANT-001"));
 
         assertTrue(view.getInputSubmitted(), "已提交有效输入必须置位，否则工作台筛不出待决策件");
-        assertEquals(input.aggregateRiskScore(), view.getInputRiskScore(), "决策前预览的评分须与输入容器自评口径一致");
+        assertEquals(input.aggregateRiskScore(UnderwritingParameter.DEFAULT), view.getInputRiskScore(),
+                "决策前预览的评分须与输入容器自评口径一致");
         assertEquals("uw01", view.getUpdatedBy());
     }
 

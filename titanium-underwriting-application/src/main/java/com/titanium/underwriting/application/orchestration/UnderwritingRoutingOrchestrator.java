@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import com.titanium.common.exception.BusinessException;
 import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.aggregate.Underwriting;
+import com.titanium.underwriting.application.config.UnderwritingParameterProperties;
 import com.titanium.underwriting.command.UnderwriteCommand;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
 import com.titanium.underwriting.port.product.ProductUnderwritingConfigPort;
@@ -49,6 +50,7 @@ public class UnderwritingRoutingOrchestrator {
 
     private final CommandGateway                            commandGateway;
     private final ProductUnderwritingConfigPort             productUnderwritingConfigPort;
+    private final UnderwritingParameterProperties           parameterProperties;
     private final EventSourcingRepository<Underwriting>     underwritingRepository;
 
     /**
@@ -73,7 +75,8 @@ public class UnderwritingRoutingOrchestrator {
         }
 
         UnderwriteCommand enriched = new UnderwriteCommand(command.underwritingId(), command.amount(),
-                command.reason(), command.processedBy(), command.tenantId(), manualReviewAmountThreshold);
+                command.reason(), command.processedBy(), command.tenantId(), manualReviewAmountThreshold,
+                parameterProperties.resolve(command.tenantId()));
         return commandGateway.sendAndWait(enriched);
     }
 

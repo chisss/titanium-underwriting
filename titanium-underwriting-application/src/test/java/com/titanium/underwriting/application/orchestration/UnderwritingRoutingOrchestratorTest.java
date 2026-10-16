@@ -28,6 +28,7 @@ import com.titanium.common.exception.BusinessException;
 import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.aggregate.Underwriting;
+import com.titanium.underwriting.application.config.UnderwritingParameterProperties;
 import com.titanium.underwriting.command.UnderwriteCommand;
 import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.event.UnderwritingStatusChangedEvent;
@@ -35,6 +36,7 @@ import com.titanium.underwriting.port.product.ProductUnderwritingConfigPort;
 import com.titanium.underwriting.port.product.ProductUnderwritingConfigPort.ProductUnderwritingConfig;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
+import com.titanium.underwriting.valueobject.UnderwritingParameter;
 
 /**
  * 核保金额路由编排器测试（g02-02 / AC-03：阈值取产品配置并充实进命令）
@@ -57,6 +59,9 @@ class UnderwritingRoutingOrchestratorTest {
 
     @Mock
     private ProductUnderwritingConfigPort         productUnderwritingConfigPort;
+
+    @Mock
+    private UnderwritingParameterProperties       parameterProperties;
 
     @Mock
     private EventSourcingRepository<Underwriting> underwritingRepository;
@@ -106,6 +111,25 @@ class UnderwritingRoutingOrchestratorTest {
     }
 
     @Test
+    void routeEnrichesTenantRiskParameterIntoDispatchedCommand() {
+        givenAggregateProductCode(PRODUCT_CODE);
+        when(productUnderwritingConfigPort.fetchConfig(PRODUCT_CODE, TENANT_ID))
+                .thenReturn(new ProductUnderwritingConfig(true, THRESHOLD, null, ProductConfigSource.CONFIGURED));
+        UnderwritingParameter tenantParameter = new UnderwritingParameter(20, 10, 15,
+                new BigDecimal("18.5"), new BigDecimal("28"), new BigDecimal("32"), 10, 100, 25, 55, 85);
+        when(parameterProperties.resolve(TENANT_ID)).thenReturn(tenantParameter);
+        when(commandGateway.sendAndWait(any(UnderwriteCommand.class)))
+                .thenReturn(new UnderwritingStatusChangedEvent(UNDERWRITING_ID, null,
+                        UnderwritingEnum.UnderwritingStatus.APPROVED, "自动核保", null, "system", TENANT_ID));
+
+        orchestrator.route(underwriteCommand());
+
+        verify(commandGateway).sendAndWait(commandCaptor.capture());
+        assertSame(tenantParameter, commandCaptor.getValue().riskParameter(),
+                "命令须携带经租户解析的核保参数，聚合才能按租户覆盖判定；缺失即租户覆盖静默失效");
+    }
+
+    @Test
     void routeFailsWithStructuredErrorWhenAggregateMissing() {
         when(underwritingRepository.load(UNDERWRITING_ID.value()))
                 .thenThrow(new AggregateNotFoundException(UNDERWRITING_ID.value(), "聚合不存在"));
@@ -119,11 +143,13 @@ class UnderwritingRoutingOrchestratorTest {
         EventSourcedAggregate<Underwriting> eventSourced = mock(EventSourcedAggregate.class);
         when(underwritingRepository.load(UNDERWRITING_ID.value())).thenReturn(lockAware);
         when(lockAware.getWrappedAggregate()).thenReturn(eventSourced);
-        when(eventSourced.getAggregateRoot()).thenReturn(Underwriting.builder().productCode(productCode).build());
+        Underwriting underwriting = mock(Underwriting.class);
+        when(underwriting.getProductCode()).thenReturn(productCode);
+        when(eventSourced.getAggregateRoot()).thenReturn(underwriting);
     }
 
     private UnderwriteCommand underwriteCommand() {
         return new UnderwriteCommand(UNDERWRITING_ID, UnderwritingAmount.of(BigDecimal.valueOf(600_000),
-                CurrencyEnum.CNY), "自动核保", "system", TENANT_ID, null);
+                CurrencyEnum.CNY), "自动核保", "system", TENANT_ID, null, UnderwritingParameter.DEFAULT);
     }
 }

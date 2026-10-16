@@ -9,7 +9,12 @@ import com.titanium.underwriting.exception.UnderwritingValidationException;
 
 /**
  * Underwriting Amount Value Object
+ *
+ * @deprecated DSN-07 货币建模统一（m25-09，2026-10）：新代码禁止使用，一律改用
+ *             {@link com.titanium.metadata.valueobject.Money}（金额 + 币种）。
+ *             存量按「先小域后大域」分批迁移：maintenance → regulatory → policy → underwriting → claim。
  */
+@Deprecated(since = "2026-10", forRemoval = true)
 public record UnderwritingAmount(BigDecimal amount, CurrencyEnum currency) {
     public UnderwritingAmount(BigDecimal amount, CurrencyEnum currency) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
@@ -28,10 +33,6 @@ public record UnderwritingAmount(BigDecimal amount, CurrencyEnum currency) {
 
     public static UnderwritingAmount of(BigDecimal amount, CurrencyEnum currency) {
         return new UnderwritingAmount(amount, currency);
-    }
-
-    public static UnderwritingAmount of(double amount, CurrencyEnum currency) {
-        return new UnderwritingAmount(BigDecimal.valueOf(amount), currency);
     }
 
     public UnderwritingAmount add(UnderwritingAmount other) {

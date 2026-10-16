@@ -247,7 +247,7 @@ public class AutoDecisionOrchestrator {
      */
     private UnderwritingDecidedEvent decide(String underwritingId, AutoDecideRequest request) {
         DecideUnderwritingCommand command = new DecideUnderwritingCommand(new UnderwritingId(underwritingId),
-                AUTO_AUDIT_TYPE, request.operatorId(), request.tenantId(), null, null, null);
+                AUTO_AUDIT_TYPE, request.operatorId(), request.tenantId(), null, null, null, null);
         return underwritingDecisionOrchestrator.decide(command, request.productCode());
     }
 }

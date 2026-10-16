@@ -28,7 +28,7 @@ import com.titanium.underwriting.web.vo.UnderwritingVO;
  * <p>
  * 读模型结果/领域事件/同步命令快照 → 展示 {@code VO}（Controller 用）/ 对外 {@code UnderwritingResponse}
  * （Provider 用）的同名字段映射，差异字段以 {@code @Mapping(qualifiedByName)} + {@code @Named} 空安全转换
- * 方法声明式表达。边界输入 → 领域命令的装配（含 {@code UnderwritingId.generate()} 等业务决策）已剥离至
+ * 方法声明式表达。边界输入 → 领域命令的装配（含 {@code IdGenerator} 生成 ID 等业务决策）已剥离至
  * {@link com.titanium.underwriting.web.assembler.UnderwritingWebAssembler}，本映射器禁止手工组装对象。
  * </p>
  */

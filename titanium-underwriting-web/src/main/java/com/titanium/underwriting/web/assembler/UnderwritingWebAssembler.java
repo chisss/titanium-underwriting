@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.titanium.common.number.IdGenerator;
 import com.titanium.metadata.enums.CurrencyEnum;
 import com.titanium.metadata.enums.underwriting.HealthDeclarationQuestion;
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
@@ -44,13 +45,14 @@ import com.titanium.underwriting.web.dto.ManualReviewDTO;
 import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
 import com.titanium.underwriting.web.dto.UnderwriteDTO;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * 核保 Web 层命令装配器（业务决策型组装）
  * <p>
  * 边界输入（HTTP {@code DTO} / 远程 {@code Request}）到 CQRS 命令的装配枢纽。因装配过程含领域工厂调用
- * （{@link UnderwritingId#generate()}、{@link PolicyId#of(String)}）、值对象构建（{@code BigDecimal}+币种 →
+ * （{@link UnderwritingId#of(String)}、{@link PolicyId#of(String)}）、值对象构建（{@code BigDecimal}+币种 →
  * {@link UnderwritingAmount}、分块判空 → {@link UnderwritingInput}）与类型转换（{@code code} →
  * {@link UnderwritingEnum.AuditType}），属含业务决策的对象组装（红线 21），故从 MapStruct 映射器中剥离为本
  * 装配器；{@code UnderwritingWebMapper} 只保留纯声明式的同名字段映射。
@@ -58,7 +60,11 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class UnderwritingWebAssembler {
+
+    /** 核保 ID 生成器（DSN-05 / ADR-0002：ID 生成属边界职责，值对象不自产 ID） */
+    private final IdGenerator idGenerator;
 
     /**
      * 系统自动核保主体（操作人缺省值）
@@ -81,7 +87,7 @@ public class UnderwritingWebAssembler {
     public CreateUnderwritingCommand toCommand(CreateUnderwritingDTO request, String tenantId) {
         // 边界防腐：REST 入参币种 code(String) 转 CurrencyEnum，装配为带校验的金额值对象
         CurrencyEnum currency = resolveCurrency(request.getCurrency());
-        return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
+        return new CreateUnderwritingCommand(UnderwritingId.of(idGenerator.nextIdString()), PolicyId.of(request.getPolicyId()),
                 CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(resolveAmount(request.getAmount()), currency),
                 request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode(), null, null);
     }
@@ -96,9 +102,10 @@ public class UnderwritingWebAssembler {
      */
     public UnderwriteCommand toCommand(String underwritingId, UnderwriteDTO request, String tenantId) {
         // manualReviewAmountThreshold 由 application 层金额路由编排器依产品核保配置充实（g02-02），
-        // web 侧置 null——命令在编排器派发前必经其充实，web 直连不构成合法路径（同 DecideUnderwritingDTO 先例）
+        // riskParameter 同由该编排器依配置解析充实（DSN-09 / m25-11）；web 侧均置 null——命令在编排器
+        // 派发前必经其充实，web 直连不构成合法路径（同 DecideUnderwritingDTO 先例）
         return new UnderwriteCommand(new UnderwritingId(underwritingId), new UnderwritingAmount(request.getAmount()),
-                request.getReason(), request.getUnderwriteBy(), tenantId, null);
+                request.getReason(), request.getUnderwriteBy(), tenantId, null, null);
     }
 
     /**
@@ -126,9 +133,10 @@ public class UnderwritingWebAssembler {
     public DecideUnderwritingCommand toCommand(String underwritingId, DecideUnderwritingDTO request,
                                                String tenantId) {
         // surchargeAcceptable/ruleDecision/configSource 由 application 层编排器依产品核保配置与规则集执行结果填充
-        // （dev-505 / m11-1404），web 侧置 null——命令在编排器派发前必经其充实，web 直连不构成合法路径
+        // （dev-505 / m11-1404），riskParameter 同由该编排器依配置解析充实（DSN-09 / m25-11）；web 侧均置 null
+        // ——命令在编排器派发前必经其充实，web 直连不构成合法路径
         return new DecideUnderwritingCommand(new UnderwritingId(underwritingId), toAuditType(request.getAuditType()),
-                request.getDecidedBy(), tenantId, null, null, null);
+                request.getDecidedBy(), tenantId, null, null, null, null);
     }
 
     /**
@@ -156,7 +164,7 @@ public class UnderwritingWebAssembler {
     public CreateUnderwritingCommand toCommand(CreateUnderwritingRequest request, String tenantId) {
         CurrencyEnum currency = resolveCurrency(request.getCurrency());
         // 四步建单契约不承载投保单号维度（无该字段），insuranceId 置 null——幂等键由 :auto-decide 端点承担
-        return new CreateUnderwritingCommand(UnderwritingId.generate(), PolicyId.of(request.getPolicyId()),
+        return new CreateUnderwritingCommand(UnderwritingId.of(idGenerator.nextIdString()), PolicyId.of(request.getPolicyId()),
                 CustomerId.of(request.getCustomerId()), UnderwritingAmount.of(resolveAmount(request.getAmount()), currency),
                 request.getUnderwritingType(), request.getRequestBy(), tenantId, request.getProductCode(), null, null);
     }
@@ -170,9 +178,10 @@ public class UnderwritingWebAssembler {
      * @return 执行核保命令
      */
     public UnderwriteCommand toCommand(String underwritingId, UnderwriteRequest request, String tenantId) {
-        // 同 web 侧：阈值由 application 层金额路由编排器依产品核保配置充实（g02-02），契约侧不承载该字段
+        // 同 web 侧：阈值与 riskParameter 由 application 层金额路由编排器依产品核保配置与本域配置解析充实
+        // （g02-02 / DSN-09），契约侧不承载这两个字段
         return new UnderwriteCommand(new UnderwritingId(underwritingId), new UnderwritingAmount(request.getAmount()),
-                request.getReason(), request.getUnderwriteBy(), tenantId, null);
+                request.getReason(), request.getUnderwriteBy(), tenantId, null, null);
     }
 
     /**
@@ -200,9 +209,10 @@ public class UnderwritingWebAssembler {
     public DecideUnderwritingCommand toCommand(String underwritingId, DecideUnderwritingApiRequest request,
             String tenantId) {
         // surchargeAcceptable/ruleDecision/configSource 由 application 层编排器依产品核保配置与规则集执行结果填充
-        // （dev-505 / m11-1404），web 侧置 null——命令在编排器派发前必经其充实，provider 直连不构成合法路径
+        // （dev-505 / m11-1404），riskParameter 同由该编排器依配置解析充实（DSN-09 / m25-11）；provider 侧均置
+        // null——命令在编排器派发前必经其充实，provider 直连不构成合法路径
         return new DecideUnderwritingCommand(new UnderwritingId(underwritingId), toAuditType(request.getAuditType()),
-                request.getDecidedBy(), tenantId, null, null, null);
+                request.getDecidedBy(), tenantId, null, null, null, null);
     }
 
     /**

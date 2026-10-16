@@ -42,9 +42,9 @@ import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
+import com.titanium.underwriting.valueobject.UnderwritingParameter;
 
 import lombok.Getter;
-import lombok.experimental.SuperBuilder;
 
 /**
  * Underwriting Aggregate Root
@@ -54,7 +54,6 @@ import lombok.experimental.SuperBuilder;
  * </p>
  */
 @Aggregate
-@SuperBuilder(builderMethodName = "builder")
 @Getter
 public class Underwriting extends BaseAggregate {
     /**
@@ -71,11 +70,14 @@ public class Underwriting extends BaseAggregate {
      */
     private static final BigDecimal FALLBACK_MANUAL_REVIEW_AMOUNT_THRESHOLD = BigDecimal.valueOf(100000);
 
-    /** 次标准体风险评分基准（评分超出该基准的部分折算加费幅度，与 UnderwritingInput 阈值一致） */
-    private static final int SUB_STANDARD_SCORE_BASE = 30;
-
-    /** 每 1 分风险评分折算的加费率（超出基准部分，如 0.02 表示每分加费 2%） */
-    private static final double EXTRA_PREMIUM_RATE_PER_SCORE = 0.02d;
+    /**
+     * 每 1 分风险评分折算的加费率（超出基准部分，0.02 表示每分加费 2%）。
+     * <p>
+     * 🔴 DSN-07（m25-09）：金额/费率折算一律 BigDecimal——原为 {@code double 0.02d}，
+     * 二进制浮点下 35×0.02d 得 0.7000000000000001（BigDecimal 恰为 0.70）。
+     * </p>
+     */
+    private static final BigDecimal EXTRA_PREMIUM_RATE_PER_SCORE = new BigDecimal("0.02");
 
     /** 保全核保规则与模型版本随结论冻结，升级必须新增版本而非覆盖历史。 */
     private static final String MAINTENANCE_RULE_VERSION = "maintenance-underwriting-rules/1.1.0";
@@ -203,7 +205,8 @@ public class Underwriting extends BaseAggregate {
     private UnderwritingEnum.UnderwritingStatus determineUnderwritingStatus(UnderwriteCommand command) {
         // 优先基于已提交险种专属输入评估的风险等级判定（充血模型），无输入时回退金额规则
         if (this.underwritingInput != null && this.underwritingInput.hasAnyInput()) {
-            UnderwritingEnum.RiskLevel assessedLevel = this.underwritingInput.assessRiskLevel();
+            UnderwritingEnum.RiskLevel assessedLevel =
+                    this.underwritingInput.assessRiskLevel(resolveRiskParameter(command.riskParameter()));
             return mapRiskLevelToStatus(assessedLevel);
         }
         // 金额规则：阈值来自产品配置，缺失时取兜底默认（详见常量 javadoc，语义为「配置缺失不放松风控」）
@@ -252,7 +255,8 @@ public class Underwriting extends BaseAggregate {
         requireNotTerminal("DecideUnderwritingCommand");
 
         UnderwritingEnum.UnderwritingStatus oldStatus = this.status;
-        int riskScore = this.underwritingInput.aggregateRiskScore();
+        UnderwritingParameter parameter = resolveRiskParameter(command.riskParameter());
+        int riskScore = this.underwritingInput.aggregateRiskScore(parameter);
         UnderwritingEnum.RiskLevel assessedRiskLevel;
         UnderwritingEnum.ConclusionType conclusion;
         UnderwritingEnum.UnderwritingStatus newStatus;
@@ -267,7 +271,7 @@ public class Underwriting extends BaseAggregate {
             reason = command.ruleDecision().reason();
         } else {
             // 内置评分路径（向后兼容）：基于险种专属输入评估风险等级（充血模型）
-            assessedRiskLevel = this.underwritingInput.assessRiskLevel();
+            assessedRiskLevel = this.underwritingInput.assessRiskLevel(parameter);
             // 风险等级映射核保结论
             conclusion = deriveConclusion(assessedRiskLevel);
             // 核保结论映射核保状态
@@ -275,7 +279,7 @@ public class Underwriting extends BaseAggregate {
             // 次标准体修改条件承保：产出结构化加费明细，供 billing 计算实收保费
             // surchargeAcceptable 来自产品核保配置（null 时默认允许加费，与存量行为一致）
             boolean canSurcharge = command.surchargeAcceptable() == null || command.surchargeAcceptable();
-            derivedExtraPremium = canSurcharge ? deriveExtraPremium(conclusion, riskScore) : null;
+            derivedExtraPremium = canSurcharge ? deriveExtraPremium(conclusion, riskScore, parameter) : null;
         }
 
         UnderwritingDecidedEvent event = new UnderwritingDecidedEvent(command.underwritingId(), this.policyId,
@@ -295,17 +299,37 @@ public class Underwriting extends BaseAggregate {
      *
      * @param conclusion 核保结论
      * @param riskScore 综合风险评分
+     * @param parameter 核保风险参数（提供次标准体加费基准，DSN-09 / m25-11）
      * @return 加费明细；非 MODIFY 结论返回 null
      */
-    private ExtraPremium deriveExtraPremium(UnderwritingEnum.ConclusionType conclusion, int riskScore) {
+    private ExtraPremium deriveExtraPremium(UnderwritingEnum.ConclusionType conclusion, int riskScore,
+                                            UnderwritingParameter parameter) {
         if (conclusion != UnderwritingEnum.ConclusionType.MODIFY) {
             return null;
         }
-        // 次标准体评分区间 [30,60)，超出标准体阈值 30 的部分每 1 分折算 2% 加费，封顶 100%
-        int excess = Math.max(0, riskScore - SUB_STANDARD_SCORE_BASE);
-        double ratio = Math.min(1.0d, excess * EXTRA_PREMIUM_RATE_PER_SCORE);
-        return ExtraPremium.ofRatio(BigDecimal.valueOf(ratio), null,
+        // 次标准体评分区间 [subStandardThreshold, highRiskThreshold)，超出次标准体阈值的部分每 1 分
+        // 折算 2% 加费，封顶 100%（阈值与评分数值经 UnderwritingParameter 参数化，加费基准与评分阈值同源）
+        // 🔴 DSN-07（m25-09）：折算全程 BigDecimal（评分 × 每分费率 → 封顶 ONE），
+        //    消除 double 运算的二进制浮点误差（如 excess=35 时 35×0.02d 得 0.7000000000000001）
+        int excess = Math.max(0, riskScore - parameter.subStandardThreshold());
+        BigDecimal ratio = BigDecimal.valueOf(excess).multiply(EXTRA_PREMIUM_RATE_PER_SCORE).min(BigDecimal.ONE);
+        return ExtraPremium.ofRatio(ratio, null,
                 String.format(UnderwritingConstants.EXTRA_PREMIUM_REASON_TEMPLATE, riskScore));
+    }
+
+    /**
+     * 解析命令携带的核保风险参数（DSN-09 / m25-11）
+     * <p>
+     * 命令未携带参数（未经编排器充实的直连路径）时回退 {@link UnderwritingParameter#DEFAULT}。
+     * 🔴 回退动作留在聚合根（判定入口唯一），编排器刻意不做 null→默认值替换——与 g02-02
+     * 金额阈值同一纪律：替换若发生在编排器，「租户覆盖值」与「兜底默认值」在事件流与日志中不可区分。
+     * </p>
+     *
+     * @param riskParameter 命令携带的核保风险参数（可为 null）
+     * @return 生效的核保风险参数（恒非 null）
+     */
+    private UnderwritingParameter resolveRiskParameter(UnderwritingParameter riskParameter) {
+        return riskParameter != null ? riskParameter : UnderwritingParameter.DEFAULT;
     }
 
     /**
@@ -672,14 +696,14 @@ public class Underwriting extends BaseAggregate {
         }
     }
 
-    /**
-     * 默认构造函数
-     * <p>
-     * 受保护的默认构造函数，用于 Axon Framework 的反序列化和实例化
-     */
+    /** 仅供 Axon 回放使用（框架反射实例化），业务代码禁止调用 */
     protected Underwriting() {
-        // Required by Axon Framework
     }
 
 
+
+    /** maintenanceAdditionalConditions 不可变视图（DSN-02：杜绝经 getter 外泄内部集合引用，变更须经命令与事件） */
+    public List<String> getMaintenanceAdditionalConditions() {
+        return maintenanceAdditionalConditions == null ? null : List.copyOf(maintenanceAdditionalConditions);
+    }
 }

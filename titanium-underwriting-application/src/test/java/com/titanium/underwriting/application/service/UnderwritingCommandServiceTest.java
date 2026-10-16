@@ -29,6 +29,7 @@ import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
+import com.titanium.underwriting.valueobject.UnderwritingParameter;
 
 @ExtendWith(MockitoExtension.class)
 class UnderwritingCommandServiceTest {
@@ -52,7 +53,7 @@ class UnderwritingCommandServiceTest {
     void underwriteDelegatesToRoutingOrchestratorSoThresholdComesFromProductConfig() {
         UnderwriteCommand command = new UnderwriteCommand(new UnderwritingId("UW-001"),
                 UnderwritingAmount.of(BigDecimal.valueOf(600_000), CurrencyEnum.CNY), "自动核保", "system",
-                "TENANT-001", null);
+                "TENANT-001", null, UnderwritingParameter.DEFAULT);
         UnderwritingStatusChangedEvent event = new UnderwritingStatusChangedEvent(command.underwritingId(), null,
                 UnderwritingEnum.UnderwritingStatus.REVIEW, "自动核保", null, "system", "TENANT-001");
         when(underwritingRoutingOrchestrator.route(command)).thenReturn(event);

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import com.titanium.common.exception.BusinessException;
 import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.underwriting.aggregate.Underwriting;
+import com.titanium.underwriting.application.config.UnderwritingParameterProperties;
 import com.titanium.underwriting.command.DecideUnderwritingCommand;
 import com.titanium.underwriting.common.constant.UnderwritingConstants;
 import com.titanium.underwriting.event.UnderwritingDecidedEvent;
@@ -60,6 +61,7 @@ public class UnderwritingDecisionOrchestrator {
     private final RuleEngineServicePort           ruleEngineServicePort;
     private final FeatureCenterPort               featureCenterPort;
     private final RuleConclusionMappingService    ruleConclusionMappingService;
+    private final UnderwritingParameterProperties parameterProperties;
     private final EventSourcingRepository<Underwriting> underwritingRepository;
 
     /**
@@ -94,7 +96,7 @@ public class UnderwritingDecisionOrchestrator {
 
         DecideUnderwritingCommand enriched = new DecideUnderwritingCommand(command.underwritingId(),
                 command.auditType(), command.decidedBy(), command.tenantId(), config.surchargeAcceptable(),
-                ruleDecision, config.configSource());
+                ruleDecision, config.configSource(), parameterProperties.resolve(command.tenantId()));
         return commandGateway.sendAndWait(enriched);
     }
 

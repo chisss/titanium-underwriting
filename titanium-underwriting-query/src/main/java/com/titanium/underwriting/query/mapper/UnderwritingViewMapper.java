@@ -27,6 +27,7 @@ import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
+import com.titanium.underwriting.valueobject.UnderwritingParameter;
 
 /**
  * 核保读模型投影映射器（MapStruct，事件 → 读模型字段拷贝）
@@ -249,10 +250,10 @@ public interface UnderwritingViewMapper {
         return input != null && input.hasAnyInput();
     }
 
-    /** 核保输入容器 → 综合风险评分（空安全，与决策事件 riskScore 同源） */
+    /** 核保输入容器 → 综合风险评分（空安全，与决策事件 riskScore 同源；读侧预览无租户配置上下文，取域默认参数集） */
     @Named("inputRiskScore")
     default Integer inputRiskScore(UnderwritingInput input) {
-        return input != null ? input.aggregateRiskScore() : null;
+        return input != null ? input.aggregateRiskScore(UnderwritingParameter.DEFAULT) : null;
     }
 
     /** 保全核保结论 → 核保状态（口径内聚在枚举上，与写侧事件回放共用同一映射） */

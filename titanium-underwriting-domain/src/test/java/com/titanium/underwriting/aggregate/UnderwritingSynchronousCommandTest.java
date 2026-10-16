@@ -28,6 +28,7 @@ import com.titanium.underwriting.valueobject.RuleUnderwritingDecision;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
+import com.titanium.underwriting.valueobject.UnderwritingParameter;
 
 class UnderwritingSynchronousCommandTest {
 
@@ -45,7 +46,8 @@ class UnderwritingSynchronousCommandTest {
     @Test
     void underwriteReturnsAppliedStatusEventSynchronously() {
         UnderwriteCommand command = new UnderwriteCommand(UNDERWRITING_ID,
-                UnderwritingAmount.of(BigDecimal.ZERO, CurrencyEnum.CNY), "自动核保", "system", TENANT_ID, null);
+                UnderwritingAmount.of(BigDecimal.ZERO, CurrencyEnum.CNY), "自动核保", "system", TENANT_ID, null,
+                UnderwritingParameter.DEFAULT);
 
         fixture.given(createdEvent())
                 .when(command)
@@ -79,7 +81,7 @@ class UnderwritingSynchronousCommandTest {
     void decideEmptyInputReturnsFinalStandardDecisionSynchronously() {
         UnderwritingInput emptyInput = UnderwritingInput.builder().build();
         DecideUnderwritingCommand decide = new DecideUnderwritingCommand(UNDERWRITING_ID,
-                UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true, null, ProductConfigSource.CONFIGURED);
+                UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true, null, ProductConfigSource.CONFIGURED, UnderwritingParameter.DEFAULT);
 
         fixture.given(createdEvent(), new UnderwritingInputSubmittedEvent(UNDERWRITING_ID, emptyInput,
                 LocalDateTime.now(), "system", TENANT_ID))
@@ -104,7 +106,7 @@ class UnderwritingSynchronousCommandTest {
                 UnderwritingEnum.UnderwritingStatus.EXCLUDED, null, "甲状腺结节除外责任承保");
         DecideUnderwritingCommand decide = new DecideUnderwritingCommand(UNDERWRITING_ID,
                 UnderwritingEnum.AuditType.AUTOMATIC, "system", TENANT_ID, true, ruleDecision,
-                ProductConfigSource.CONFIGURED);
+                ProductConfigSource.CONFIGURED, UnderwritingParameter.DEFAULT);
 
         fixture.given(createdEvent(), new UnderwritingInputSubmittedEvent(UNDERWRITING_ID, emptyInput,
                 LocalDateTime.now(), "system", TENANT_ID))

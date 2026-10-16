@@ -3,16 +3,11 @@ package com.titanium.underwriting.valueobject;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-import com.titanium.common.util.SnowflakeIdGenerator;
 
 /**
  * Underwriting ID Value Object
  */
 public record UnderwritingId(String value) {
-
-    public static UnderwritingId generate() {
-        return new UnderwritingId(SnowflakeIdGenerator.generate());
-    }
 
     public static UnderwritingId of(String value) {
         return new UnderwritingId(value);
@@ -30,7 +25,7 @@ public record UnderwritingId(String value) {
      *
      * <p>
      * 🔴 <b>为何由业务键派生案件号</b>：粗粒度端点 {@code :auto-decide} 以投保单号为幂等键，承诺
-     * 「同键重放不产生第二张核保单」。若案件号取 {@link #generate()} 的雪花号，幂等就只能靠 CQRS 读模型
+     * 「同键重放不产生第二张核保单」。若案件号取随机雪花号，幂等就只能靠 CQRS 读模型
      * 反查——而读模型由<b>异步投影</b>维护。首次调用返回后立即重放时投影尚未追平，反查落空，编排器遂判
      * 「无既有核保单」而<b>再建一张</b>（真机实测：210ms 间隔重放即产生两张核保单）。改由
      * <b>(租户, 投保单号) 派生</b>后，同键必得同号：幂等由<b>聚合标识本身</b>保证，不依赖投影、不依赖任何索引。

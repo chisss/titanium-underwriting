@@ -33,8 +33,8 @@ class HealthDeclarationTest {
         HealthDeclaration withHistory = health(List.of("高血压"), List.of(), false, "175", "80");
         HealthDeclaration withoutHistory = health(List.of(), List.of(), false, "175", "80");
 
-        assertTrue(withHistory.riskScore() > withoutHistory.riskScore());
-        assertEquals(20, withHistory.riskScore() - withoutHistory.riskScore());
+        assertTrue(withHistory.riskScore(UnderwritingParameter.DEFAULT) > withoutHistory.riskScore(UnderwritingParameter.DEFAULT));
+        assertEquals(20, withHistory.riskScore(UnderwritingParameter.DEFAULT) - withoutHistory.riskScore(UnderwritingParameter.DEFAULT));
     }
 
     // ---------------------------------------------------------------- 评分规则
@@ -50,16 +50,16 @@ class HealthDeclarationTest {
         // 既往病史每项 +20、家族史每项 +10、吸烟 +15；BMI 26.1 属正常区间不罚
         HealthDeclaration declaration = health(List.of("高血压", "糖尿病"), List.of("冠心病家族史"), true, "175", "80");
 
-        assertEquals(2 * 20 + 10 + 15, declaration.riskScore());
+        assertEquals(2 * 20 + 10 + 15, declaration.riskScore(UnderwritingParameter.DEFAULT));
     }
 
     @Test
     void penalizesUnderweightOverweightAndObesityBands() {
         // <18.5 → +10；[28,32) → +10；>=32 → +20（两档叠加）；正常区间（175/80，BMI 26.1）为对照不罚
-        assertEquals(10, health(List.of(), List.of(), false, "175", "50").riskScore());
-        assertEquals(10, health(List.of(), List.of(), false, "175", "86").riskScore());
-        assertEquals(20, health(List.of(), List.of(), false, "175", "100").riskScore());
-        assertEquals(0, health(List.of(), List.of(), false, "175", "80").riskScore());
+        assertEquals(10, health(List.of(), List.of(), false, "175", "50").riskScore(UnderwritingParameter.DEFAULT));
+        assertEquals(10, health(List.of(), List.of(), false, "175", "86").riskScore(UnderwritingParameter.DEFAULT));
+        assertEquals(20, health(List.of(), List.of(), false, "175", "100").riskScore(UnderwritingParameter.DEFAULT));
+        assertEquals(0, health(List.of(), List.of(), false, "175", "80").riskScore(UnderwritingParameter.DEFAULT));
     }
 
     @Test
@@ -68,7 +68,7 @@ class HealthDeclarationTest {
                 List.of("病史1", "病史2", "病史3", "病史4", "病史5", "病史6"), List.of(), true, "175", "100");
 
         // 未封顶时 = 6*20 + 15 + 20 = 155
-        assertEquals(100, declaration.riskScore());
+        assertEquals(100, declaration.riskScore(UnderwritingParameter.DEFAULT));
     }
 
     // ---------------------------------------------------------------- 构造不变量与不可变性

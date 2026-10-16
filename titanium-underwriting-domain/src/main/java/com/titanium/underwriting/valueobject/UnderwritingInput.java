@@ -13,7 +13,9 @@ import lombok.Builder;
  * 容器内聚整体风险等级判定逻辑（充血模型），替代聚合根中"金额硬编码"的简单规则。
  * </p>
  * <p>
- * TODO 规则引擎接入：当前为内置加权评分规则，后续应下沉至 titanium-rule-engine 模块按租户/险种配置。
+ * 评分与等级判定的数值已参数化（{@link UnderwritingParameter}，DSN-09 / m25-11，支持租户级覆盖）；
+ * 产品接入规则引擎时（ruleSetCode 非空）由核保决策编排器改走规则集路径，本容器的内置评分
+ * 作为未接入规则集的基线路径保留。
  * </p>
  *
  * @param healthDeclaration 健康告知（寿险/重疾/医疗）
@@ -35,21 +37,6 @@ public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExa
             Serializable {
 
     /**
-     * 次标准体风险阈值（评分 >= 该值判为次标准体）
-     */
-    private static final int THRESHOLD_SUB_STANDARD = 30;
-
-    /**
-     * 高风险体风险阈值
-     */
-    private static final int THRESHOLD_HIGH_RISK = 60;
-
-    /**
-     * 不可保体风险阈值
-     */
-    private static final int THRESHOLD_UNINSURABLE = 85;
-
-    /**
      * 是否已提供任一险种专属输入
      *
      * @return true 表示至少存在一项核保输入
@@ -65,15 +52,18 @@ public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExa
      * <p>
      * 采用"短板优先"策略：任一维度高风险即拉高整体风险，符合保险核保保守原则（充血模型）。
      * 取最大值而非求和，故同一要素同时出现在粗粒度容器（{@link #insuredRiskFactors}）与明细块
-     * （职业/体检）时不会重复计分。
+     * （职业/体检）时不会重复计分。健康告知块的可配置权重经 {@code parameter} 下传
+     * （DSN-09 / m25-11），其余输入块评分为域内固定规则（不下传参数）。
      * </p>
      *
+     * @param parameter 核保风险参数（不可为 null；读侧预览等未持有租户参数场景显式传
+     *                  {@link UnderwritingParameter#DEFAULT}）
      * @return 综合风险评分
      */
-    public int aggregateRiskScore() {
+    public int aggregateRiskScore(UnderwritingParameter parameter) {
         int score = 0;
         if (healthDeclaration != null) {
-            score = Math.max(score, healthDeclaration.riskScore());
+            score = Math.max(score, healthDeclaration.riskScore(parameter));
         }
         if (physicalExamResult != null) {
             score = Math.max(score, physicalExamResult.riskScore());
@@ -104,18 +94,23 @@ public record UnderwritingInput(HealthDeclaration healthDeclaration, PhysicalExa
 
     /**
      * 评估整体风险等级（充血模型）
+     * <p>
+     * 等级阈值取自 {@link UnderwritingParameter}（DSN-09 / m25-11，支持租户级覆盖）。
+     * </p>
      *
+     * @param parameter 核保风险参数（不可为 null；调用方未持有租户参数时应显式传
+     *                  {@link UnderwritingParameter#DEFAULT}，禁止再新增无参重载）
      * @return 风险等级；无任何输入时返回标准体
      */
-    public UnderwritingEnum.RiskLevel assessRiskLevel() {
-        int score = aggregateRiskScore();
-        if (score >= THRESHOLD_UNINSURABLE) {
+    public UnderwritingEnum.RiskLevel assessRiskLevel(UnderwritingParameter parameter) {
+        int score = aggregateRiskScore(parameter);
+        if (score >= parameter.uninsurableThreshold()) {
             return UnderwritingEnum.RiskLevel.UNINSURABLE;
         }
-        if (score >= THRESHOLD_HIGH_RISK) {
+        if (score >= parameter.highRiskThreshold()) {
             return UnderwritingEnum.RiskLevel.HIGH_RISK;
         }
-        if (score >= THRESHOLD_SUB_STANDARD) {
+        if (score >= parameter.subStandardThreshold()) {
             return UnderwritingEnum.RiskLevel.SUB_STANDARD;
         }
         return UnderwritingEnum.RiskLevel.STANDARD;

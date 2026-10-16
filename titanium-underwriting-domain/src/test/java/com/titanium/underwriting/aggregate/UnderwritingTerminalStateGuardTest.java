@@ -28,6 +28,7 @@ import com.titanium.underwriting.valueobject.RuleUnderwritingDecision;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
+import com.titanium.underwriting.valueobject.UnderwritingParameter;
 
 /**
  * 核保聚合终态保护测试（m7-1002）。
@@ -113,7 +114,7 @@ class UnderwritingTerminalStateGuardTest {
 
         fixture.given(createdEvent(), inputSubmittedEvent())
                 .when(new DecideUnderwritingCommand(UNDERWRITING_ID, UnderwritingEnum.AuditType.MANUAL, OPERATOR,
-                        TENANT_ID, true, rejectDecision, ProductConfigSource.CONFIGURED))
+                        TENANT_ID, true, rejectDecision, ProductConfigSource.CONFIGURED, UnderwritingParameter.DEFAULT))
                 .expectState(state -> assertEquals(DECLINE_REASON, state.getRejectReason(),
                         "拒保口径统一走 isRejected() 后，真实拒保状态 DECLINED 的原因必须落聚合，与读模型一致"));
     }
@@ -155,12 +156,12 @@ class UnderwritingTerminalStateGuardTest {
     private UnderwriteCommand underwriteCommand() {
         // 阈值留 null：本类只验证终态守卫，走聚合根兜底默认阈值分支即可
         return new UnderwriteCommand(UNDERWRITING_ID, UnderwritingAmount.of(BigDecimal.TEN, CurrencyEnum.CNY),
-                "重新自动核保", OPERATOR, TENANT_ID, null);
+                "重新自动核保", OPERATOR, TENANT_ID, null, UnderwritingParameter.DEFAULT);
     }
 
     private DecideUnderwritingCommand decideCommand() {
         return new DecideUnderwritingCommand(UNDERWRITING_ID, UnderwritingEnum.AuditType.MANUAL, OPERATOR, TENANT_ID,
-                true, null, null);
+                true, null, null, UnderwritingParameter.DEFAULT);
     }
 
     private ManualReviewCommand manualReviewCommand() {

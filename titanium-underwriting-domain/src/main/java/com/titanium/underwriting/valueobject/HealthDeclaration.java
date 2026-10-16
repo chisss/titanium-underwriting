@@ -75,29 +75,34 @@ public record HealthDeclaration(List<String> medicalHistory, List<String> family
     /**
      * 健康风险评分（0-100，越高风险越大）
      * <p>
-     * 综合既往病史、家族史、吸烟习惯与 BMI 异常进行加权评分（充血模型）。
+     * 综合既往病史、家族史、吸烟习惯与 BMI 异常进行加权评分（充血模型）。权重与 BMI 分段
+     * 取自 {@link UnderwritingParameter}（DSN-09 / m25-11）——数值经配置外部化并支持租户级覆盖，
+     * 未覆盖时取 {@link UnderwritingParameter#DEFAULT}（与改造前硬编码行为一致）。
      * </p>
      *
+     * @param parameter 核保风险参数（不可为 null；调用方未持有租户参数时应显式传
+     *                  {@link UnderwritingParameter#DEFAULT}，禁止再新增无参重载）
      * @return 健康风险评分
      */
-    public int riskScore() {
+    public int riskScore(UnderwritingParameter parameter) {
         int score = 0;
-        // 既往病史：每项 +20
-        score += medicalHistory.size() * 20;
-        // 家族遗传史：每项 +10
-        score += familyHistory.size() * 10;
-        // 吸烟：+15
+        // 既往病史：每项计 parameter.medicalHistoryScore()
+        score += medicalHistory.size() * parameter.medicalHistoryScore();
+        // 家族遗传史：每项计 parameter.familyHistoryScore()
+        score += familyHistory.size() * parameter.familyHistoryScore();
+        // 吸烟
         if (smoking) {
-            score += 15;
+            score += parameter.smokingScore();
         }
-        // BMI 异常：偏瘦(<18.5)或超重(>=28)各 +10，肥胖(>=32)再 +10
+        // BMI 异常：偏瘦(< bmiLowerBound)或超重(>= bmiOverweightBound)计一次偏离，肥胖(>= bmiObesityBound)再计一次
         BigDecimal bmi = bmi();
-        if (bmi.compareTo(BigDecimal.valueOf(18.5)) < 0 || bmi.compareTo(BigDecimal.valueOf(28)) >= 0) {
-            score += 10;
+        if (bmi.compareTo(parameter.bmiLowerBound()) < 0
+                || bmi.compareTo(parameter.bmiOverweightBound()) >= 0) {
+            score += parameter.bmiDeviationScore();
         }
-        if (bmi.compareTo(BigDecimal.valueOf(32)) >= 0) {
-            score += 10;
+        if (bmi.compareTo(parameter.bmiObesityBound()) >= 0) {
+            score += parameter.bmiDeviationScore();
         }
-        return Math.min(score, 100);
+        return Math.min(score, parameter.scoreCap());
     }
 }

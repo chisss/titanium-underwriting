@@ -22,6 +22,7 @@ import com.titanium.underwriting.valueobject.PolicyId;
 import com.titanium.underwriting.valueobject.UnderwritingAmount;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
+import com.titanium.underwriting.valueobject.UnderwritingParameter;
 
 /**
  * 核保金额路由判定测试（g02-02 / AC-03：人工复核阈值权威侧为产品配置）
@@ -138,7 +139,7 @@ class UnderwritingAmountRoutingTest {
 
     private UnderwriteCommand underwriteCommand(BigDecimal sumInsured, BigDecimal threshold) {
         return new UnderwriteCommand(UNDERWRITING_ID, UnderwritingAmount.of(sumInsured, CurrencyEnum.CNY),
-                "自动核保", "system", TENANT_ID, threshold);
+                "自动核保", "system", TENANT_ID, threshold, UnderwritingParameter.DEFAULT);
     }
 
     private UnderwritingCreatedEvent createdEvent() {

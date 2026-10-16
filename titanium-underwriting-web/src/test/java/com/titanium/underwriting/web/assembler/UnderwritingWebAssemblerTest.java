@@ -40,7 +40,8 @@ import com.titanium.underwriting.web.dto.SubmitUnderwritingInputDTO;
  */
 class UnderwritingWebAssemblerTest {
 
-    private final UnderwritingWebAssembler assembler = new UnderwritingWebAssembler();
+    // DSN-05：核保 ID 由边界装配器经 IdGenerator 生成；单方法接口用 lambda 给确定性值（生成逻辑非本装配器职责）
+    private final UnderwritingWebAssembler assembler = new UnderwritingWebAssembler(() -> "UW-DSN05-001");
 
     @Test
     @DisplayName("仅填车辆风险时，其余三块为 null，使用性质 code 转枚举")

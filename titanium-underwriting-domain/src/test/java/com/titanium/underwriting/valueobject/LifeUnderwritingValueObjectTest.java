@@ -115,8 +115,8 @@ class LifeUnderwritingValueObjectTest {
         if (!input.hasAnyInput()) {
             throw new AssertionError("含财务评估应视为有输入");
         }
-        if (input.aggregateRiskScore() < 60) {
-            throw new AssertionError("财务高风险应拉高综合评分，实际=" + input.aggregateRiskScore());
+        if (input.aggregateRiskScore(UnderwritingParameter.DEFAULT) < 60) {
+            throw new AssertionError("财务高风险应拉高综合评分，实际=" + input.aggregateRiskScore(UnderwritingParameter.DEFAULT));
         }
         if (!input.requiresManualFinancialReview()) {
             throw new AssertionError("应透传财务人工核保标记");
