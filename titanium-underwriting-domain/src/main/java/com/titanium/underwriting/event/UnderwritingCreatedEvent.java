@@ -2,6 +2,8 @@ package com.titanium.underwriting.event;
 
 import java.time.LocalDateTime;
 
+import org.axonframework.serialization.Revision;
+
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.valueobject.CustomerId;
 import com.titanium.underwriting.valueobject.InsuranceId;
@@ -22,6 +24,7 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * 不得据以回填（见迁移脚本注释）。
  * </p>
  */
+@Revision("1")
 public record UnderwritingCreatedEvent(UnderwritingId underwritingId, PolicyId policyId, CustomerId customerId,
                                        UnderwritingAmount amount, UnderwritingEnum.UnderwritingType underwritingType,
                                        LocalDateTime createdAt, String createdBy, String tenantId,

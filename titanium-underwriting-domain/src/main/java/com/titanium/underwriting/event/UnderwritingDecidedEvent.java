@@ -2,6 +2,8 @@ package com.titanium.underwriting.event;
 
 import java.time.LocalDateTime;
 
+import org.axonframework.serialization.Revision;
+
 import com.titanium.metadata.enums.underwriting.UnderwritingEnum;
 import com.titanium.underwriting.common.enums.ProductConfigSource;
 import com.titanium.underwriting.valueobject.ExtraPremium;
@@ -39,6 +41,7 @@ import com.titanium.underwriting.valueobject.UnderwritingId;
  * @author wei.sun
  * @since 2026/6/23
  */
+@Revision("1")
 public record UnderwritingDecidedEvent(
         UnderwritingId underwritingId,
         PolicyId policyId,

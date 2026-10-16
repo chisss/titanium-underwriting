@@ -2,6 +2,8 @@ package com.titanium.underwriting.event;
 
 import java.time.LocalDateTime;
 
+import org.axonframework.serialization.Revision;
+
 import com.titanium.underwriting.valueobject.UnderwritingId;
 import com.titanium.underwriting.valueobject.UnderwritingInput;
 
@@ -15,6 +17,7 @@ import com.titanium.underwriting.valueobject.UnderwritingInput;
  * @author wei.sun
  * @since 2026/6/23
  */
+@Revision("1")
 public record UnderwritingInputSubmittedEvent(
         UnderwritingId underwritingId,
         UnderwritingInput underwritingInput,

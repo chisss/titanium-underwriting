@@ -3,10 +3,13 @@ package com.titanium.underwriting.event;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.axonframework.serialization.Revision;
+
 import com.titanium.metadata.enums.underwriting.MaintenanceUnderwritingConclusion;
 import com.titanium.underwriting.valueobject.UnderwritingId;
 
 /** 保全核保评估已形成版本化权威结论。 */
+@Revision("1")
 public record MaintenanceUnderwritingAssessedEvent(
         UnderwritingId underwritingId,
         String tenantId,
