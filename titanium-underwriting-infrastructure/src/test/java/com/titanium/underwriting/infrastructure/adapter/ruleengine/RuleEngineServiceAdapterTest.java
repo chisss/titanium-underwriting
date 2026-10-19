@@ -19,12 +19,12 @@ import org.junit.jupiter.api.Test;
 
 import com.titanium.common.exception.BusinessException;
 import com.titanium.metadata.enums.BusinessDomainType;
+import com.titanium.metadata.enums.ruleengine.RuleDecision;
 import com.titanium.metadata.errorcode.UnderwritingErrorCode;
 import com.titanium.metadata.response.ApiResponse;
 import com.titanium.ruleengine.api.RuleEngineApi;
 import com.titanium.ruleengine.api.request.execution.RuleFacts;
 import com.titanium.ruleengine.api.response.execution.RuleExecutionResultResponse;
-import com.titanium.ruleengine.common.enums.RuleDecision;
 import com.titanium.underwriting.valueobject.RuleExecutionResult;
 
 import feign.FeignException;

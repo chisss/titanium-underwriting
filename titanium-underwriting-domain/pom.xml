@@ -25,10 +25,6 @@
         <!-- Axon Framework -->
         <dependency>
             <groupId>org.axonframework</groupId>
-            <artifactId>axon-configuration</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.axonframework</groupId>
             <artifactId>axon-modelling</artifactId>
         </dependency>
         <!-- Axon Framework -->
@@ -43,23 +39,14 @@
 
         <!-- Commons Lang3 -->
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.titanium</groupId>
             <artifactId>titanium-metadata</artifactId>
         </dependency>
         <!-- 通用内核（聚合根基类 BaseAggregate） -->
         <dependency>
             <groupId>com.titanium</groupId>
-            <artifactId>titanium-common</artifactId>
+            <artifactId>titanium-kernel</artifactId>
             <version>1.0.0-SNAPSHOT</version>
-        </dependency>
-        <!-- Spring Data Commons -->
-        <dependency>
-            <groupId>org.springframework.data</groupId>
-            <artifactId>spring-data-commons</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -83,10 +70,30 @@
             <artifactId>hamcrest</artifactId>
             <scope>test</scope>
         </dependency>
+    
+        <dependency>
+            <groupId>org.axonframework</groupId>
+            <artifactId>axon-eventsourcing</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    
+        <!-- Jackson 注解（值对象/事件 @JsonIgnore 等；m27-01：原经 titanium-common 传递获得，现显式声明） -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- m27-01/PKG-01：领域层 classpath 纯净门禁（规则见 titanium-parent pluginManagement） -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+            </plugin>
             <!-- 禁用Spring Boot Maven Plugin的repackage目标，因为这是一个领域层模块，不需要主类 -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
