@@ -29,8 +29,9 @@ import com.titanium.underwriting.exception.UnderwritingValidationException;
  * 在两处出现不会重复计分。
  * </p>
  * <p>
- * TODO 规则引擎接入：本类的年龄/职业/BMI 权重与同域其它输入块一致，均为<b>内置占位规则</b>，
- * 后续应随 {@link UnderwritingInput} 一并下沉至 titanium-rule-engine 按租户/险种配置。
+ * GAP(RULE)：本类的年龄/职业/BMI 权重与同域其它输入块一致，均为<b>内置占位规则</b>，
+ * 后续应随 {@link UnderwritingInput} 一并下沉至 titanium-rule-engine 按租户/险种配置；
+ * 登记见 {@code docs/技术文档/注释与实现一致性治理-2026-10.md} §2 G-3。
  * </p>
  *
  * @param age                被保人年龄（可为 null；提供时须在 0-150 之间）
